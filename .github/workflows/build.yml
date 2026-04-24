@@ -10,17 +10,11 @@ on:
 jobs:
   # ========== 桌面三平台 ==========
   build-desktop:
-    name: 桌面端 - ${{ matrix.target }}
+    name: 桌面端 - ${{ matrix.platform }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
+        platform: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -34,15 +28,30 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - run: yarn install --frozen-lockfile
-      - uses: tauri-apps/tauri-action@v0
+
+      # 手动构建 Tauri 桌面应用
+      - name: Build Tauri App
+        run: npx tauri build --ci
+
+      # 上传产物到 Artifacts（浏览下载）
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mobao-${{ matrix.platform }}
+          if-no-files-found: warn
+          path: src-tauri/target/release/bundle/**/*
+
+      # 如果打 tag 触发，则上传到 Release
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: v__VERSION__
-          releaseName: '墨宝 v__VERSION__'
-          releaseBody: '自动构建的墨宝小说编辑器'
-          releaseDraft: true
+          files: |
+            src-tauri/target/release/bundle/**/*
+          draft: true
           prerelease: false
+          generate_release_notes: true
 
   # ========== Android ==========
   build-android:
@@ -69,14 +78,10 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
       - run: yarn install --frozen-lockfile
-
-      # 自动初始化 Android 项目（代替本地运行 npx tauri android init）
       - name: 初始化 Tauri Android 项目
-        run: npx tauri android init --ci --app-name "墨宝" --app-id "com.mobao.app" --skip-target-check
-
+        run: npx tauri android init --ci
       - name: 构建 Android Debug APK
         run: npx tauri android build --debug
-
       - uses: actions/upload-artifact@v4
         with:
           name: mobao-android
@@ -95,14 +100,10 @@ jobs:
         with:
           targets: aarch64-apple-ios, aarch64-apple-ios-sim
       - run: yarn install --frozen-lockfile
-
-      # 自动初始化 iOS 项目（代替本地运行 npx tauri ios init）
       - name: 初始化 Tauri iOS 项目
-        run: npx tauri ios init --ci --app-name "墨宝" --app-id "com.mobao.app" --skip-target-check
-
+        run: npx tauri ios init --ci
       - name: 构建 iOS 未签名 IPA
         run: npx tauri ios build --no-sign
-
       - uses: actions/upload-artifact@v4
         with:
           name: mobao-ios
