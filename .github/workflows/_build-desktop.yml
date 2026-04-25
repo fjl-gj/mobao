@@ -11,21 +11,41 @@ jobs:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # 强制使用 Node.js 24
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      # 缓存前端依赖
+      - name: 缓存 yarn
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      # 安装 sccache 并设置环境
+      - name: 安装 sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - name: 配置 sccache
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+
+      # 设置 Rust 工具链
       - uses: dtolnay/rust-toolchain@stable
 
+      # 安装 Linux 依赖
       - name: 安装 Linux 依赖
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-
-      - name: 安装前端依赖
-        run: yarn install --frozen-lockfile
 
       - name: 构建桌面应用
         run: npx tauri build --ci

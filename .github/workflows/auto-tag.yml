@@ -3,7 +3,8 @@ name: Auto Tag (Build & Tag)
 on:
   push:
     branches: [main]
-    paths: ['version.json']
+    paths:
+      - 'version.json'
   workflow_dispatch:
 
 permissions:
@@ -12,13 +13,12 @@ permissions:
 jobs:
   desktop:
     uses: ./.github/workflows/_build-desktop.yml
-
-  android:
+  mobile:
     uses: ./.github/workflows/_build-mobile.yml
 
   create-tag:
-    name: 打标签
-    needs: [desktop, android]
+    name: 创建 tag
+    needs: [desktop, mobile]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,13 +26,17 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: 调试 - 显示 version.json 内容
+        run: cat version.json
+
       - name: 读取版本号并创建 tag
         shell: bash
         run: |
           VERSION=$(jq -r '.version' version.json)
           TAG="v$VERSION"
+          echo "Read version: $VERSION, prepared tag: $TAG"
           if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists."
+            echo "Tag $TAG already exists, skipping."
           else
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"

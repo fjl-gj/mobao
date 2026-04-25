@@ -7,28 +7,58 @@ jobs:
   android:
     name: Android
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      # 缓存 yarn
+      - name: 缓存 yarn
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+
+      - name: 安装依赖
+        run: yarn install --frozen-lockfile
+
+      # 安装 sccache
+      - name: 安装 sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - name: 配置 sccache
+        run: |
+          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android
+
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
+
+      # 缓存 Android SDK（如果每次安装时间太长可以添加）
+      - name: 缓存 Android SDK
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_SDK_ROOT }}
+          key: android-sdk-${{ runner.os }}
+
       - name: 安装 Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: 'platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973'
+
       - name: 配置环境变量
         run: |
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
-      - name: 安装前端依赖
-        run: yarn install --frozen-lockfile
+
       - name: 初始化 Android 项目
         run: npx tauri android init --ci
       - name: 构建 Android APK
