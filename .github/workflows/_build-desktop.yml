@@ -11,6 +11,10 @@ on:
         required: false
         type: string
         default: ''
+      platforms:
+        required: false
+        type: string
+        default: '["ubuntu-latest","macos-latest","windows-latest"]'
 
 jobs:
   build-desktop:
@@ -18,18 +22,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: ubuntu-latest
-            bundles: "deb,appimage"
-          - platform: macos-latest
-            bundles: "dmg"
-            signing-identity: ""              # macOS 跳过签名
-          - platform: windows-latest
-            bundles: "nsis"
+        platform: ${{ fromJson(inputs.platforms) }}
     runs-on: ${{ matrix.platform }}
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      TAURI_APPLE_SIGNING_IDENTITY: ${{ matrix.signing-identity || '' }}
+      TAURI_APPLE_SIGNING_IDENTITY: ""
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -86,8 +83,25 @@ jobs:
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
           chmod +x /usr/local/bin/appimagetool
 
+      - name: 选择打包格式
+        id: bundle
+        shell: bash
+        run: |
+          PLATFORM="${{ matrix.platform }}"
+          BUNDLES=""
+          if [ "$PLATFORM" = "ubuntu-latest" ]; then
+            BUNDLES="deb,appimage"
+          fi
+          if [ "$PLATFORM" = "macos-latest" ]; then
+            BUNDLES="dmg"
+          fi
+          if [ "$PLATFORM" = "windows-latest" ]; then
+            BUNDLES="nsis"
+          fi
+          echo "bundles=$BUNDLES" >> "$GITHUB_OUTPUT"
+
       - name: 构建桌面应用（生成指定安装包）
-        run: npx tauri build --ci --bundles ${{ matrix.bundles }}
+        run: npx tauri build --ci --bundles ${{ steps.bundle.outputs.bundles }}
 
       # 调试用（可保留）
       - name: 列出产物目录

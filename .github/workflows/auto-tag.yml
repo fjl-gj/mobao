@@ -1,7 +1,8 @@
 name: Auto Tag (Manual)
 
 on:
-  workflow_dispatch:   # 仅允许手动触发
+  workflow_dispatch:   # 允许手动触发
+  workflow_call:
 
 permissions:
   contents: write
@@ -16,6 +17,8 @@ jobs:
     name: 创建 tag
     needs: [desktop, mobile]
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.create.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,14 +29,21 @@ jobs:
         run: cat version.json
 
       - name: 读取版本号并创建 tag
+        id: create
         shell: bash
         run: |
           VERSION=$(jq -r '.version' version.json)
           TAG="v$VERSION"
           echo "Read version: $VERSION, prepared tag: $TAG"
-          if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          TAG_EXISTS=false
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG"; then
             echo "Tag $TAG already exists, skipping."
-          else
+            TAG_EXISTS=true
+          fi
+
+          if [ "$TAG_EXISTS" = "false" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "$TAG"
