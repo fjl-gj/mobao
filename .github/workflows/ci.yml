@@ -92,6 +92,7 @@ jobs:
     outputs:
       missing_platforms: ${{ steps.check.outputs.missing }}
       release_exists: ${{ steps.check.outputs.release_exists }}
+      release_published: ${{ steps.check.outputs.release_published }}
     steps:
       - name: 检查 Release 资产完整性
         id: check
@@ -99,26 +100,38 @@ jobs:
           TAG="${{ needs.check-version.outputs.tag }}"
 
           RELEASE_EXISTS=false
+          RELEASE_PUBLISHED=false
+          IS_DRAFT=true
+          PUBLISHED_AT=""
           ASSETS=""
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          RELEASE_JSON=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,publishedAt 2>/dev/null || true)
+          if [ -n "$RELEASE_JSON" ]; then
             RELEASE_EXISTS=true
-            ASSETS=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+            IS_DRAFT=$(echo "$RELEASE_JSON" | jq -r '.isDraft')
+            PUBLISHED_AT=$(echo "$RELEASE_JSON" | jq -r '.publishedAt // ""')
+            ASSETS=$(echo "$RELEASE_JSON" | jq -r '.assets[].name')
             echo "Release $TAG exists."
           fi
 
           if [ "$RELEASE_EXISTS" = "false" ]; then
             echo "Release $TAG does NOT exist."
           fi
+          if [ "$RELEASE_EXISTS" = "true" ] && [ "$IS_DRAFT" = "false" ] && [ -n "$PUBLISHED_AT" ]; then
+            RELEASE_PUBLISHED=true
+          fi
+          if [ "$RELEASE_PUBLISHED" = "false" ]; then
+            echo "Release $TAG is NOT published."
+          fi
 
           MISSING="["
           FIRST=true
           for platform in ubuntu-latest macos-latest windows-latest android; do
             MISSING_PLATFORM=false
-            if [ "$RELEASE_EXISTS" = "false" ]; then
+            if [ "$RELEASE_PUBLISHED" = "false" ]; then
               MISSING_PLATFORM=true
             fi
 
-            if [ "$RELEASE_EXISTS" = "true" ]; then
+            if [ "$RELEASE_PUBLISHED" = "true" ]; then
               KEYWORDS=""
               if [ "$platform" = "ubuntu-latest" ]; then
                 KEYWORDS=".deb .AppImage"
@@ -159,15 +172,18 @@ jobs:
           done
           MISSING+="]"
           echo "Release exists: $RELEASE_EXISTS"
+          echo "Release draft: $IS_DRAFT"
+          echo "Release published: $RELEASE_PUBLISHED"
           echo "Missing platforms: $MISSING"
           echo "release_exists=$RELEASE_EXISTS" >> $GITHUB_OUTPUT
+          echo "release_published=$RELEASE_PUBLISHED" >> $GITHUB_OUTPUT
           echo "missing=$MISSING" >> $GITHUB_OUTPUT
 
   # ========== 第二个 if：未发布时，执行全量发布 ==========
   full-release:
     name: 全量发布
     needs: [check-version, check-release]
-    if: needs.check-release.outputs.release_exists == 'false'
+    if: needs.check-release.outputs.release_published == 'false'
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.check-version.outputs.tag }}
@@ -179,7 +195,7 @@ jobs:
     name: 补发缺失平台
     needs: [check-version, check-release]
     if: |
-      needs.check-release.outputs.release_exists == 'true' &&
+      needs.check-release.outputs.release_published == 'true' &&
       needs.check-release.outputs.missing_platforms != '[]'
     uses: ./.github/workflows/release.yml
     with:
