@@ -90,10 +90,10 @@ jobs:
           shopt -s globstar nullglob
           FILES=()
           for file in \
-            release-files/*.deb \
-            release-files/*.AppImage \
-            release-files/*.dmg \
-            release-files/*.exe \
+            release-files/**/*.deb \
+            release-files/**/*.AppImage \
+            release-files/**/*.dmg \
+            release-files/**/*.exe \
             release-files/apk/*.apk; do
             if [ -f "$file" ]; then
               FILES+=("$file")
