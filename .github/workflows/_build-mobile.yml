@@ -15,7 +15,6 @@ jobs:
         with:
           node-version: 22
 
-      # 缓存 yarn
       - name: 缓存 yarn
         uses: actions/cache@v4
         with:
@@ -25,7 +24,6 @@ jobs:
       - name: 安装依赖
         run: yarn install --frozen-lockfile
 
-      # 👇 改用 rust-cache 代替 sccache
       - name: Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
@@ -40,13 +38,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 缓存 Android SDK（如果每次安装时间太长可以添加）
-      - name: 缓存 Android SDK
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.ANDROID_SDK_ROOT }}
-          key: android-sdk-${{ runner.os }}
-
       - name: 安装 Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -59,6 +50,7 @@ jobs:
 
       - name: 初始化 Android 项目
         run: npx tauri android init --ci
+
       - name: 构建 Android APK
         run: npx tauri android build --debug
 
@@ -66,18 +58,23 @@ jobs:
   # ios:
   #   name: iOS
   #   runs-on: macos-latest
+  #   env:
+  #     FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   #   steps:
   #     - uses: actions/checkout@v4
   #     - uses: actions/setup-node@v4
   #       with:
   #         node-version: 22
+  #     - run: yarn install --frozen-lockfile
+  #     - uses: Swatinem/rust-cache@v2
+  #       with:
+  #         workspaces: src-tauri
   #     - uses: dtolnay/rust-toolchain@stable
   #       with:
   #         targets: aarch64-apple-ios, aarch64-apple-ios-sim
-  #     - run: yarn install --frozen-lockfile
   #     - name: 初始化 iOS 项目
   #       run: npx tauri ios init --ci
-  #     - name: 构建 iOS 未签名 IPA
+  #     - name: 构建 iOS
   #       run: npx tauri ios build
   #       env:
   #         TAURI_APPLE_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}

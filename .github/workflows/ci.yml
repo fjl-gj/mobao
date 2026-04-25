@@ -1,0 +1,99 @@
+name: CI Controller
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  # ========== 检查版本变化与 tag 状态 ==========
+  check-version:
+    name: 检查版本状态
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      tag: ${{ steps.version.outputs.TAG }}
+      changed: ${{ steps.filter.outputs.version }}
+      tag_exists: ${{ steps.check_tag.outputs.exists }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 检测 version.json 是否被修改
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            version:
+              - 'version.json'
+
+      # 读取版本号
+      - name: 读取版本号
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' version.json)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
+
+      # 检查远程仓库中该 tag 是否存在
+      - name: 检查 tag 是否存在
+        id: check_tag
+        run: |
+          TAG="v${{ steps.version.outputs.VERSION }}"
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG"; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ========== 编译检查（始终执行） ==========
+  desktop-build:
+    name: 桌面编译检查
+    needs: check-version
+    uses: ./.github/workflows/_build-desktop.yml
+
+  mobile-build:
+    name: 移动端编译检查
+    needs: check-version
+    uses: ./.github/workflows/_build-mobile.yml
+
+  # ========== 条件打 tag ==========
+  create-tag:
+    name: 创建 tag
+    needs: [check-version, desktop-build, mobile-build]
+    if: |
+      needs.check-version.outputs.changed == 'true' ||
+      needs.check-version.outputs.tag_exists == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 处理 tag 并推送
+        shell: bash
+        run: |
+          CHANGED="${{ needs.check-version.outputs.changed }}"
+          TAG="${{ needs.check-version.outputs.tag }}"
+          EXISTS="${{ needs.check-version.outputs.tag_exists }}"
+
+          # 如果版本变化但旧 tag 存在，先删除
+          if [[ "$EXISTS" == "true" && "$CHANGED" == "true" ]]; then
+            echo "版本变更，删除旧的 tag $TAG"
+            git push origin --delete "$TAG"
+          fi
+
+          # 如果 tag 存在且版本未变，则无需打 tag（正常情况不会进入此分支因为 if 条件会过滤）
+          if [[ "$EXISTS" == "true" && "$CHANGED" == "false" ]]; then
+            echo "Tag 已存在且版本未变，无操作。"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
