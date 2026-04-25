@@ -1,0 +1,55 @@
+name: Reusable Mobile Build
+
+on:
+  workflow_call:
+
+jobs:
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: 安装 Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973'
+      - name: 配置环境变量
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+      - name: 安装前端依赖
+        run: yarn install --frozen-lockfile
+      - name: 初始化 Android 项目
+        run: npx tauri android init --ci
+      - name: 构建 Android APK
+        run: npx tauri android build --debug
+
+  # iOS 暂时注释，需要时取消
+  # ios:
+  #   name: iOS
+  #   runs-on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22
+  #     - uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         targets: aarch64-apple-ios, aarch64-apple-ios-sim
+  #     - run: yarn install --frozen-lockfile
+  #     - name: 初始化 iOS 项目
+  #       run: npx tauri ios init --ci
+  #     - name: 构建 iOS 未签名 IPA
+  #       run: npx tauri ios build
+  #       env:
+  #         TAURI_APPLE_DEVELOPMENT_TEAM: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
