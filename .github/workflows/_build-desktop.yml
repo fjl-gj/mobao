@@ -18,17 +18,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - platform: ubuntu-latest
+            bundles: "deb,appimage"
+          - platform: macos-latest
+            bundles: "dmg"
+            signing-identity: ""                      # 跳过签名
+          - platform: windows-latest
+            bundles: "nsis"
     runs-on: ${{ matrix.platform }}
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # 强制使用 Node.js 24
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      TAURI_APPLE_SIGNING_IDENTITY: ${{ matrix.signing-identity || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # 缓存前端依赖
+      - name: 同步版本号（发布时）
+        if: inputs.tag != ''
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          VERSION=${TAG#v}
+          echo "Setting version to $VERSION"
+          tmp=$(mktemp)
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > "$tmp" && mv "$tmp" src-tauri/tauri.conf.json
+
       - name: 缓存 yarn
         uses: actions/cache@v4
         with:
@@ -38,27 +55,31 @@ jobs:
       - name: 安装依赖
         run: yarn install --frozen-lockfile
 
-      # 👇 改用 rust-cache 代替 sccache
       - name: Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
-      # 设置 Rust 工具链
       - uses: dtolnay/rust-toolchain@stable
 
-      # 安装 Linux 依赖
-      - name: 安装 Linux 依赖
+      # ---------- 平台专属打包依赖 ----------
+      - name: 安装 Linux 打包依赖
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y dpkg-dev fakeroot libfuse2 file
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool
+          chmod +x /usr/local/bin/appimagetool
 
-      - name: 构建桌面应用
-        run: npx tauri build --ci
+      - name: 构建桌面应用（指定要生成的包）
+        run: npx tauri build --ci --bundles ${{ matrix.bundles }}
 
-      # 当发布时，将产物上传为临时 Artifact，供 release.yml 下载
-      - name: 上传构建产物（仅发布用）
+      # 调试用（可保留或删除）
+      - name: 列出产物目录
+        run: ls -R src-tauri/target/release/bundle/ || echo "No bundle directory"
+
+      # 发布时上传安装包作为临时 artifact
+      - name: 上传构建产物（发布用）
         if: inputs.upload-artifact
         uses: actions/upload-artifact@v4
         with:
