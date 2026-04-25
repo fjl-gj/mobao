@@ -183,7 +183,10 @@ jobs:
   full-release:
     name: 全量发布
     needs: [check-version, check-release]
-    if: needs.check-release.outputs.release_published == 'false'
+    if: |
+      always() &&
+      needs.check-release.result == 'success' &&
+      needs.check-release.outputs.release_published == 'false'
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.check-version.outputs.tag }}
@@ -195,6 +198,8 @@ jobs:
     name: 补发缺失平台
     needs: [check-version, check-release]
     if: |
+      always() &&
+      needs.check-release.result == 'success' &&
       needs.check-release.outputs.release_published == 'true' &&
       needs.check-release.outputs.missing_platforms != '[]'
     uses: ./.github/workflows/release.yml
