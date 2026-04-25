@@ -2,6 +2,15 @@ name: Reusable Mobile Build
 
 on:
   workflow_call:
+    inputs:
+      upload-artifact:
+        required: false
+        type: boolean
+        default: false
+      tag:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   android:
@@ -38,6 +47,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      # 获取当前周数用于定期刷新缓存
+      - name: 获取周数
+        id: week
+        run: echo "WEEK=$(date +%Y-W%U)" >> $GITHUB_OUTPUT
+
+      - name: 缓存 Android SDK
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/lib/android/sdk
+          key: android-sdk-${{ runner.os }}-${{ steps.week.outputs.WEEK }}-${{ hashFiles('src-tauri/gen/android/build.gradle.kts') }}
+
       - name: 安装 Android SDK
         uses: android-actions/setup-android@v3
         with:
@@ -51,8 +71,24 @@ jobs:
       - name: 初始化 Android 项目
         run: npx tauri android init --ci
 
+      - name: 缓存 Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ steps.week.outputs.WEEK }}-${{ hashFiles('src-tauri/gen/android/**/*.gradle.kts', 'src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties') }}
+
       - name: 构建 Android APK
         run: npx tauri android build --debug
+
+      # 发布时上传 APK 为 Artifact
+      - name: 上传 APK（仅发布用）
+        if: inputs.upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-apk
+          path: src-tauri/gen/android/app/build/outputs/apk/debug/app-debug.apk
 
   # iOS 暂时注释，需要时取消
   # ios:
