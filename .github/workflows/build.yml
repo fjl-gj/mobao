@@ -22,26 +22,30 @@ jobs:
         with:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
+
       - name: 安装 Linux 依赖
         if: matrix.platform == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - run: yarn install --frozen-lockfile
 
-      # 手动构建 Tauri 桌面应用
-      - name: Build Tauri App
+      - name: 同步版本号到 Tauri 配置
+        run: |
+          VERSION=$(jq -r '.version' version.json)
+          tmp=$(mktemp)
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > "$tmp" && mv "$tmp" src-tauri/tauri.conf.json
+
+      - name: 构建桌面应用
         run: npx tauri build --ci
 
-      # 上传产物到 Artifacts（浏览下载）
       - uses: actions/upload-artifact@v4
         with:
           name: mobao-${{ matrix.platform }}
-          if-no-files-found: warn
           path: src-tauri/target/release/bundle/**/*
 
-      # 如果打 tag 触发，则上传到 Release
-      - name: Upload Release Assets
+      - name: 上传到 Release（仅 tag 触发）
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         env:
@@ -78,9 +82,9 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
           echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
       - run: yarn install --frozen-lockfile
-      - name: 初始化 Tauri Android 项目
+      - name: 初始化 Android 项目
         run: npx tauri android init --ci
-      - name: 构建 Android Debug APK
+      - name: 构建 Android APK
         run: npx tauri android build --debug
       - uses: actions/upload-artifact@v4
         with:
