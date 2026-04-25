@@ -3,6 +3,7 @@ name: CI Build Test
 on:
   push:
     branches: [main]
+    paths-ignore: ['version.json']   # version.json 变更时不触发 build.yml
   pull_request:
     branches: [main]
   workflow_dispatch:
