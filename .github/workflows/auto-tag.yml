@@ -1,11 +1,7 @@
-name: Auto Tag (Build & Tag)
+name: Auto Tag (Manual)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'version.json'
-  workflow_dispatch:
+  workflow_dispatch:   # 仅允许手动触发
 
 permissions:
   contents: write

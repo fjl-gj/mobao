@@ -1,12 +1,7 @@
-name: CI Build Test
+name: CI Build Test (Manual)
 
 on:
-  push:
-    branches: [main]
-    paths-ignore: ['version.json']   # version.json 变更时不触发 build.yml
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
+  workflow_dispatch:   # 仅允许手动触发
 
 jobs:
   desktop:
