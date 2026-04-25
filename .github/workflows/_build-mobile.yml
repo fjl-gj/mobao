@@ -84,15 +84,15 @@ jobs:
           key: gradle-${{ runner.os }}-${{ steps.week.outputs.WEEK }}-${{ hashFiles('src-tauri/gen/android/**/*.gradle.kts', 'src-tauri/gen/android/gradle/wrapper/gradle-wrapper.properties') }}
 
       - name: 构建 Android APK
-        run: npx tauri android build --debug
+        run: npx tauri android build --ci --apk
 
-      # 修正后的 APK 上传路径
+      # 发布时上传 release APK，避免 debug universal 包体积过大
       - name: 上传 APK（发布时）
         if: inputs.upload-artifact
         uses: actions/upload-artifact@v4
         with:
           name: mobile-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/**/*.apk
 
   # iOS 暂时注释，需要时取消
   # ios:
