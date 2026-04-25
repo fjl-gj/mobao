@@ -38,7 +38,7 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=v$VERSION" >> $GITHUB_OUTPUT
 
-      - name: 检查远程 tag
+      - name: 检查远程 tag 是否存在
         id: check_tag
         run: |
           TAG="v${{ steps.version.outputs.VERSION }}"
@@ -50,25 +50,23 @@ jobs:
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-  # ========== 编译检查（始终执行） ==========
+  # ========== 日常编译检查（仅当 version.json 未变化时执行） ==========
   desktop-check:
     needs: check-version
+    if: needs.check-version.outputs.changed == 'false'
     uses: ./.github/workflows/_build-desktop.yml
 
   mobile-check:
     needs: check-version
+    if: needs.check-version.outputs.changed == 'false'
     uses: ./.github/workflows/_build-mobile.yml
 
-  # ========== 打 tag（条件执行） ==========
+  # ========== 打 tag（仅当 tag 不存在时执行，绝不删除已有 tag） ==========
   create-tag:
     name: 创建 tag
-    needs: [check-version, desktop-check, mobile-check]
-    if: |
-      needs.check-version.outputs.changed == 'true' ||
-      needs.check-version.outputs.tag_exists == 'false'
+    needs: check-version
+    if: needs.check-version.outputs.tag_exists == 'false'
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ needs.check-version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,55 +76,61 @@ jobs:
       - name: 推送新 tag
         shell: bash
         run: |
-          CHANGED="${{ needs.check-version.outputs.changed }}"
           TAG="${{ needs.check-version.outputs.tag }}"
-          EXISTS="${{ needs.check-version.outputs.tag_exists }}"
-
-          if [[ "$EXISTS" == "true" && "$CHANGED" == "true" ]]; then
-            echo "Removing old tag $TAG"
-            git push origin --delete "$TAG"
-          fi
-
-          if [[ "$EXISTS" == "true" && "$CHANGED" == "false" ]]; then
-            echo "Tag already present, nothing to do."
-            exit 0
-          fi
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$TAG"
           git push origin "$TAG"
 
-  # ========== 检查 Release 是否已存在 ==========
-  check-release:
-    name: 检查 Release 状态
-    needs: [check-version, create-tag]
-    if: |
-      needs.check-version.outputs.tag_exists == 'true' ||
-      needs.create-tag.outputs.tag != ''
+  # ========== 检查缺失平台（当 tag 存在时执行） ==========
+  check-missing:
+    name: 检查缺失平台
+    needs: check-version
+    if: needs.check-version.outputs.tag_exists == 'true'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
-      should_publish: ${{ steps.check.outputs.publish }}
+      missing_platforms: ${{ steps.check.outputs.missing }}
     steps:
-      - name: 查询 Release
+      - name: 检查 Release 中缺少哪些平台的资产
         id: check
         run: |
           TAG="${{ needs.check-version.outputs.tag }}"
-          if gh release view "$TAG" --repo $GITHUB_REPOSITORY >/dev/null 2>&1; then
-            echo "Release for $TAG already exists."
-            echo "publish=false" >> $GITHUB_OUTPUT
-          else
-            echo "No Release for $TAG. Will publish."
-            echo "publish=true" >> $GITHUB_OUTPUT
-          fi
+          declare -A PLATFORM_KEY=(
+            ["ubuntu-latest"]=".deb"
+            ["macos-latest"]=".dmg"
+            ["windows-latest"]=".exe"
+            ["android"]=".apk"
+            # ["ios"]=".ipa"   # 需要时可取消注释
+          )
+          MISSING="["
+          FIRST=true
+          # 目前检查的列表：三个桌面平台 + Android
+          for platform in ubuntu-latest macos-latest windows-latest android; do
+            KEYWORD="${PLATFORM_KEY[$platform]}"
+            ASSETS=$(gh release view "$TAG" --repo $GITHUB_REPOSITORY --json assets --jq '.assets[].name' 2>/dev/null || echo "")
+            if echo "$ASSETS" | grep -qi "$KEYWORD"; then
+              echo "$platform asset found"
+            else
+              echo "Missing asset for $platform"
+              if [ "$FIRST" = true ]; then
+                MISSING+="\"$platform\""
+                FIRST=false
+              else
+                MISSING+=",\"$platform\""
+              fi
+            fi
+          done
+          MISSING+="]"
+          echo "Missing platforms: $MISSING"
+          echo "missing=$MISSING" >> $GITHUB_OUTPUT
 
-  # ========== 调用 release.yml 进行发布 ==========
+  # ========== 发布 / 补发（当检测到缺失平台时执行） ==========
   publish:
     name: 执行发布
-    needs: [check-version, create-tag, check-release]
-    if: needs.check-release.outputs.should_publish == 'true'
+    needs: [check-version, check-missing]
+    if: needs.check-missing.outputs.missing_platforms != '[]'
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.check-version.outputs.tag }}

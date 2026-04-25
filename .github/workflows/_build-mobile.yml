@@ -47,8 +47,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      # 获取当前周数用于定期刷新缓存
-      - name: 获取周数
+      - name: 获取周数（定期刷新缓存）
         id: week
         run: echo "WEEK=$(date +%Y-W%U)" >> $GITHUB_OUTPUT
 
@@ -82,13 +81,13 @@ jobs:
       - name: 构建 Android APK
         run: npx tauri android build --debug
 
-      # 发布时上传 APK 为 Artifact
-      - name: 上传 APK（仅发布用）
+      # 修正后的 APK 上传路径
+      - name: 上传 APK（发布时）
         if: inputs.upload-artifact
         uses: actions/upload-artifact@v4
         with:
           name: mobile-apk
-          path: src-tauri/gen/android/app/build/outputs/apk/debug/app-debug.apk
+          path: src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
 
   # iOS 暂时注释，需要时取消
   # ios:
