@@ -103,7 +103,7 @@ jobs:
       - name: 初始化 Tauri iOS 项目
         run: npx tauri ios init --ci
       - name: 构建 iOS 未签名 IPA
-        run: npx tauri ios build --no-sign
+        run: npx tauri ios build
       - uses: actions/upload-artifact@v4
         with:
           name: mobao-ios
