@@ -8,50 +8,51 @@ on:
         type: string
 
 jobs:
-  # ---------- 调用桌面构建，同时同步版本号并上传产物 ----------
+  # ---------- 调用桌面构建（并上传临时 artifact） ----------
   desktop:
-    name: 桌面发布
     uses: ./.github/workflows/_build-desktop.yml
     with:
       upload-artifact: true
       tag: ${{ inputs.tag }}
 
-  # ---------- 调用移动构建 ----------
+  # ---------- 调用移动端构建 ----------
   mobile:
-    name: Android 发布
     uses: ./.github/workflows/_build-mobile.yml
     with:
       upload-artifact: true
       tag: ${{ inputs.tag }}
 
-  # ---------- 将桌面产物上传到 Release ----------
-  release-desktop:
-    name: 发布桌面 Release
-    needs: desktop
+  # ---------- 收集产物并发布到 GitHub Release ----------
+  publish:
+    needs: [desktop, mobile]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
+      # 合并下载所有桌面安装包
       - name: 下载桌面产物
         uses: actions/download-artifact@v4
         with:
-          name: desktop-bundle-${{ matrix.platform }}
-          path: ./bundle
+          pattern: desktop-bundle-*
+          path: release-files
+          merge-multiple: true
 
-      - name: 上传到 GitHub Release
+      # 单独下载 Android APK
+      - name: 下载 Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: mobile-apk
+          path: release-files/apk
+
+      # 创建 Release 并上传所有文件
+      - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ inputs.tag }}
-          files: ./bundle/**/*
+          files: |
+            release-files/**/*
           draft: false
           prerelease: false
           generate_release_notes: true
-
-  # ---------- Android 产物保留为 Artifact（已上传，无需重复下载） ----------
-  # Android 的 APK 已经通过 mobile job 上传为 artifact，这里无需额外操作。
-  # 如果需要同时上传到 Release，可以增加类似步骤下载并发布。
