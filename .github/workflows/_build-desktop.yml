@@ -2,6 +2,15 @@ name: Reusable Desktop Build
 
 on:
   workflow_call:
+    inputs:
+      upload-artifact:
+        required: false
+        type: boolean
+        default: false
+      tag:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   build-desktop:
@@ -47,3 +56,11 @@ jobs:
 
       - name: 构建桌面应用
         run: npx tauri build --ci
+
+      # 当发布时，将产物上传为临时 Artifact，供 release.yml 下载
+      - name: 上传构建产物（仅发布用）
+        if: inputs.upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-bundle-${{ matrix.platform }}
+          path: src-tauri/target/release/bundle/**/*
