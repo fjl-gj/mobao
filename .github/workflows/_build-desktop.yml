@@ -29,13 +29,11 @@ jobs:
       - name: 安装依赖
         run: yarn install --frozen-lockfile
 
-      # 安装 sccache 并设置环境
-      - name: 安装 sccache
-        uses: mozilla-actions/sccache-action@v0.0.3
-      - name: 配置 sccache
-        run: |
-          echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      # 👇 改用 rust-cache 代替 sccache
+      - name: Rust 缓存
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
       # 设置 Rust 工具链
       - uses: dtolnay/rust-toolchain@stable
