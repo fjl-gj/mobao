@@ -6,31 +6,68 @@ on:
       tag:
         required: true
         type: string
+      platforms:
+        required: false
+        type: string
+        default: '["ubuntu-latest","macos-latest","windows-latest","android"]'
 
 jobs:
-  # ---------- 调用桌面构建（并上传临时 artifact） ----------
-  desktop:
+  # ---------- 按需调用桌面构建（并上传临时 artifact） ----------
+  desktop-ubuntu:
+    if: contains(fromJson(inputs.platforms), 'ubuntu-latest')
     uses: ./.github/workflows/_build-desktop.yml
     with:
       upload-artifact: true
       tag: ${{ inputs.tag }}
+      platforms: '["ubuntu-latest"]'
+
+  desktop-macos:
+    if: contains(fromJson(inputs.platforms), 'macos-latest')
+    uses: ./.github/workflows/_build-desktop.yml
+    with:
+      upload-artifact: true
+      tag: ${{ inputs.tag }}
+      platforms: '["macos-latest"]'
+
+  desktop-windows:
+    if: contains(fromJson(inputs.platforms), 'windows-latest')
+    uses: ./.github/workflows/_build-desktop.yml
+    with:
+      upload-artifact: true
+      tag: ${{ inputs.tag }}
+      platforms: '["windows-latest"]'
 
   # ---------- 调用移动端构建 ----------
   mobile:
+    if: contains(fromJson(inputs.platforms), 'android')
     uses: ./.github/workflows/_build-mobile.yml
     with:
       upload-artifact: true
       tag: ${{ inputs.tag }}
+      platforms: '["android"]'
 
   # ---------- 收集产物并发布到 GitHub Release ----------
   publish:
-    needs: [desktop, mobile]
+    needs: [desktop-ubuntu, desktop-macos, desktop-windows, mobile]
+    if: |
+      always() &&
+      (
+        needs.desktop-ubuntu.result == 'success' ||
+        needs.desktop-macos.result == 'success' ||
+        needs.desktop-windows.result == 'success' ||
+        needs.mobile.result == 'success'
+      )
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       # 合并下载所有桌面平台的安装包
       - name: 下载桌面产物
+        if: |
+          needs.desktop-ubuntu.result == 'success' ||
+          needs.desktop-macos.result == 'success' ||
+          needs.desktop-windows.result == 'success'
         uses: actions/download-artifact@v4
         with:
           pattern: desktop-bundle-*
@@ -39,24 +76,34 @@ jobs:
 
       # 单独下载 Android APK
       - name: 下载 Android APK
+        if: needs.mobile.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: mobile-apk
           path: release-files/apk
 
-      # 创建 Release，只上传确定的安装包格式
-      - name: 创建 GitHub Release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ inputs.tag }}
-          files: |
-            release-files/*.deb
-            release-files/*.AppImage
-            release-files/*.dmg
-            release-files/*.exe
-            release-files/apk/*.apk
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+      # 创建或补充 Release，只上传本次构建出来的安装包
+      - name: 创建或补充 GitHub Release
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          shopt -s globstar nullglob
+          FILES=()
+          for file in release-files/**/*; do
+            if [ -f "$file" ]; then
+              FILES+=("$file")
+            fi
+          done
+
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No release files found."
+            exit 1
+          fi
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${FILES[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          fi
+
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" "${FILES[@]}" --repo "$GITHUB_REPOSITORY" --generate-notes
+          fi
