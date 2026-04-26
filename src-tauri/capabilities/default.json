@@ -14,7 +14,6 @@
     "fs:allow-mkdir",
     "fs:allow-remove",
     "fs:allow-rename",
-    "fs:allow-scope",
     "sql:default",
     "sql:allow-execute",
     "sql:allow-select"
