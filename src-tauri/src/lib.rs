@@ -268,8 +268,8 @@ fn read_text_file(root_path: String, relative_path: String) -> Result<String, St
     }
 
     // 尝试 GBK 解码
-    let (cow, _) = encoding_rs::GBK.decode(&bytes);
-    Ok(cow.to_string())
+    let (cow, _, _) = encoding_rs::GBK.decode(&bytes); // 三元组解构
+    Ok(cow.into_owned()) // Cow -> String，避免借用问题
 }
 
 /// 写入文本文件（UTF-8）
