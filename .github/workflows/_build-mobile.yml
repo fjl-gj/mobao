@@ -29,6 +29,16 @@ jobs:
         with:
           node-version: 22
 
+      - name: 同步版本号（发布时）
+        if: inputs.tag != ''
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          VERSION=${TAG#v}
+          echo "Setting version to $VERSION"
+          tmp=$(mktemp)
+          jq --arg v "$VERSION" '.version = $v' src-tauri/tauri.conf.json > "$tmp" && mv "$tmp" src-tauri/tauri.conf.json
+
       - name: 缓存 yarn
         uses: actions/cache@v4
         with:

@@ -82,6 +82,37 @@ jobs:
           name: mobile-apk
           path: release-files/apk
 
+      - name: 统一 Release 资产文件名
+        shell: bash
+        run: |
+          TAG="${{ inputs.tag }}"
+          VERSION="${TAG#v}"
+          mkdir -p release-assets
+
+          DEB=$(find release-files -name '*.deb' -type f | sort | head -n 1)
+          APPIMAGE=$(find release-files -name '*.AppImage' -type f | sort | head -n 1)
+          DMG=$(find release-files -name '*.dmg' -type f | sort | head -n 1)
+          EXE=$(find release-files -name '*.exe' -type f | sort | head -n 1)
+          APK=$(find release-files -name '*.apk' -type f | sort | head -n 1)
+
+          if [ -n "$DEB" ]; then
+            cp "$DEB" "release-assets/MoBao_x86_64_v${VERSION}.deb"
+          fi
+          if [ -n "$APPIMAGE" ]; then
+            cp "$APPIMAGE" "release-assets/MoBao_v${VERSION}.AppImage"
+          fi
+          if [ -n "$DMG" ]; then
+            cp "$DMG" "release-assets/MoBao_aarch64_v${VERSION}.dmg"
+          fi
+          if [ -n "$EXE" ]; then
+            cp "$EXE" "release-assets/MoBao_x86_64_v${VERSION}.exe"
+          fi
+          if [ -n "$APK" ]; then
+            cp "$APK" "release-assets/MoBao_v${VERSION}.apk"
+          fi
+
+          ls -la release-assets
+
       # 创建或补充 Release，只上传本次构建出来的安装包
       - name: 创建或补充 GitHub Release
         shell: bash
@@ -89,12 +120,7 @@ jobs:
           TAG="${{ inputs.tag }}"
           shopt -s globstar nullglob
           FILES=()
-          for file in \
-            release-files/**/*.deb \
-            release-files/**/*.AppImage \
-            release-files/**/*.dmg \
-            release-files/**/*.exe \
-            release-files/apk/*.apk; do
+          for file in release-assets/*; do
             if [ -f "$file" ]; then
               FILES+=("$file")
             fi
