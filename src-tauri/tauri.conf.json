@@ -1,13 +1,13 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/config.schema.json",
   "productName": "墨宝小说编辑器",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "identifier": "com.mobao.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "yarn dev",
-    "beforeBuildCommand": "yarn build"
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "withGlobalTauri": true,
@@ -36,7 +36,17 @@
     ]
   },
   "plugins": {
-    "dialog": null,
-    "fs": null
+    "dialog": {},
+    "fs": {
+      "scope": {
+        "allow": ["**"],
+        "deny": []
+      }
+    },
+    "sql": {
+      "preload": {
+        "db": "sqlite:mobao.db"
+      }
+    }
   }
 }
