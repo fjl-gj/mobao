@@ -11,6 +11,8 @@ const SQL_CREATE = [
     id TEXT PRIMARY KEY, series_id TEXT NOT NULL REFERENCES series(id) ON DELETE CASCADE,
     title TEXT NOT NULL, root_path TEXT NOT NULL,
     structure_mode TEXT NOT NULL DEFAULT 'flat', prologue_path TEXT,
+    chapter_start INTEGER, chapter_end INTEGER,
+    source_type TEXT DEFAULT 'create', structure_json TEXT,
     cover_path TEXT, description TEXT DEFAULT '', sort_order INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -80,6 +82,7 @@ export class SqliteProvider implements IStorageProvider {
     for (const sql of SQL_CREATE) {
       await this.db.execute(sql);
     }
+    await this.ensureNovelColumns();
     // 索引
     const indexes = [
       'CREATE INDEX IF NOT EXISTS idx_novels_series ON novels(series_id)',
@@ -91,6 +94,20 @@ export class SqliteProvider implements IStorageProvider {
     ];
     for (const i of indexes) {
       await this.db.execute(i);
+    }
+  }
+
+  private async ensureNovelColumns(): Promise<void> {
+    const rows = await this.db.select('PRAGMA table_info(novels)');
+    const columns = new Set(rows.map((row: any) => row.name));
+    const migrations = [
+      ['chapter_start', 'ALTER TABLE novels ADD COLUMN chapter_start INTEGER'],
+      ['chapter_end', 'ALTER TABLE novels ADD COLUMN chapter_end INTEGER'],
+      ['source_type', "ALTER TABLE novels ADD COLUMN source_type TEXT DEFAULT 'create'"],
+      ['structure_json', 'ALTER TABLE novels ADD COLUMN structure_json TEXT'],
+    ];
+    for (const [name, sql] of migrations) {
+      if (!columns.has(name)) await this.db.execute(sql);
     }
   }
 

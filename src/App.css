@@ -580,6 +580,17 @@ input::placeholder { color: var(--text-muted); }
 
 .field-option.compact { padding: 6px 10px; }
 .field-option.compact b { font-size: 0.8rem; }
+.novel-action-row { align-items: stretch; }
+.dialog-steps {
+  display: flex; gap: 6px; margin-bottom: 12px; font-size: 0.76rem; color: var(--text-muted);
+}
+.dialog-steps span {
+  flex: 1; text-align: center; padding: 5px 6px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg-sidebar);
+}
+.dialog-steps span.active {
+  color: #fff; background: var(--accent); border-color: var(--accent);
+}
 
 .badge-recommend {
   display: inline-block; font-style: normal; font-size: 0.6rem; font-weight: 600;

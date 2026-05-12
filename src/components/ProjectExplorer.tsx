@@ -8,7 +8,7 @@ type CtxTarget = { type: 'series'; id: string; name: string } | { type: 'novel';
 
 export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () => void }) {
   const { state, loadSeries, loadNovels, createSeries, renameSeries, deleteSeries,
-    createNovel, deleteNovel, setActiveSeries, setActiveNovel } = useProject();
+    deleteNovel, setActiveSeries, setActiveNovel } = useProject();
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; target: CtxTarget } | null>(null);
   const [confirmDlg, setConfirmDlg] = useState<{
     type: 'rename' | 'delete';
@@ -16,7 +16,7 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
     text: string;
     target: CtxTarget;
   } | null>(null);
-  const [novelDlg, setNovelDlg] = useState<'import' | 'create' | null>(null);
+  const [novelDlg, setNovelDlg] = useState<'choice' | 'import' | 'create' | null>(null);
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
   const { activeSeriesId, activeNovelId, series, novels } = state;
 
@@ -73,7 +73,7 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
   };
 
   const handleCreateNovel = (seriesId: string) => {
-    setNovelDlg('create');
+    setNovelDlg('choice');
     setActiveSeries(seriesId);
     loadNovels(seriesId);
   };
@@ -88,7 +88,6 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
 
   const seriesMenuItems = (sid: string, sname: string) => [
     { label: '新建小说', icon: '🆕', action: () => handleCreateNovel(sid) },
-    { label: '导入小说', icon: '📂', action: () => handleImportNovel(sid) },
     { sep: true },
     { label: '重命名集合', icon: '✎', action: () => setConfirmDlg({
       type: 'rename', title: '重命名集合', text: `修改「${sname}」名称为:`, target: { type: 'series', id: sid, name: sname },

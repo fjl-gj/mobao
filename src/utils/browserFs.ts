@@ -178,6 +178,67 @@ function pickWithWebkitDir(): Promise<NovelStructure | null> {
   });
 }
 
+export function scanBrowserFiles(files: File[]): { rootName: string; structure: NovelStructure } | null {
+  if (files.length === 0) return null;
+
+  const firstPath = (files[0] as any).webkitRelativePath as string | undefined;
+  const rootName = firstPath ? firstPath.split('/')[0] : '导入作品';
+  const dirMap = new Map<string, string[]>();
+  const rootFiles: string[] = [];
+
+  for (const file of files) {
+    if (!isMdOrTxt(file.name)) continue;
+    const relPath = ((file as any).webkitRelativePath as string | undefined) || file.name;
+    const parts = relPath.split('/').filter(Boolean);
+    const withoutRoot = parts[0] === rootName ? parts.slice(1) : parts;
+    if (withoutRoot.length > 1) {
+      const dirName = withoutRoot[0];
+      if (dirName.startsWith('.')) continue;
+      const chapterPath = withoutRoot.join('/');
+      if (!dirMap.has(dirName)) dirMap.set(dirName, []);
+      dirMap.get(dirName)!.push(chapterPath);
+    } else {
+      rootFiles.push(withoutRoot[0] || file.name);
+    }
+  }
+
+  const structure: NovelStructure = {
+    mode: 'flat',
+    prologue: null,
+    volumes: [],
+    root_chapters: [],
+  };
+
+  const dirNames = [...dirMap.keys()].sort(naturalSort);
+  if (dirNames.length > 0) {
+    structure.mode = 'volume';
+    for (const dirName of dirNames) {
+      const chapters: ChapterEntry[] = [];
+      for (const relPath of dirMap.get(dirName)!.sort(naturalSort)) {
+        const fileName = relPath.split('/').pop()!;
+        if (isPrologue(fileName)) {
+          structure.prologue = { name: fileName, relative_path: relPath };
+        } else {
+          chapters.push({ name: fileName, relative_path: relPath });
+        }
+      }
+      if (chapters.length > 0) structure.volumes.push({ name: dirName, chapters });
+    }
+  } else {
+    for (const relPath of rootFiles.sort(naturalSort)) {
+      const fileName = relPath.split('/').pop()!;
+      if (isPrologue(fileName)) {
+        structure.prologue = { name: fileName, relative_path: relPath };
+      } else {
+        structure.root_chapters.push({ name: fileName, relative_path: relPath });
+      }
+    }
+  }
+
+  if (structure.volumes.length === 0 && structure.root_chapters.length === 0 && !structure.prologue) return null;
+  return { rootName, structure };
+}
+
 // ---------- 统一入口 ----------
 
 export async function pickAndScanDirectory(): Promise<{ rootName: string; structure: NovelStructure } | null> {

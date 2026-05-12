@@ -1,11 +1,13 @@
 import { useState, useRef } from 'react';
 import { useProject } from '../hooks/useProject';
-import { isTauriEnv } from '../utils/db';
+import { createDialog } from '../core/dialog';
+import type { DirectoryPickResult } from '../core/dialog';
 import { scanNovelDirectory, type NovelStructure } from '../utils/fileOps';
-import { pickAndScanDirectory } from '../utils/browserFs';
+import { scanBrowserFiles } from '../utils/browserFs';
 
-type Tab = 'import' | 'create';
+type Tab = 'choice' | 'import' | 'create';
 type ImportStep = 'idle' | 'picked' | 'scanning' | 'result';
+type StructureMode = 'volume' | 'flat';
 
 interface Props {
   seriesId: string;
@@ -14,45 +16,44 @@ interface Props {
   onClose: () => void;
 }
 
-async function pickDirectory(title = '选择文件夹'): Promise<string | null> {
-  if (isTauriEnv()) {
-    try {
-      const { open } = await import('@tauri-apps/plugin-dialog');
-      return await open({ directory: true, title }) || null;
-    } catch { /* fallthrough */ }
-  }
-  const path = prompt('请输入路径（浏览器模式为模拟）:');
-  return path || null;
-}
-
 export default function NovelDialog({ seriesId, initialTab, onComplete, onClose }: Props) {
   const { createNovel, importNovel, setActiveNovel } = useProject();
   const [tab, setTab] = useState<Tab>(initialTab);
   const done = useRef(false);
 
   // ========== 新建 Tab ==========
+  const [createStep, setCreateStep] = useState(1);
   const [title, setTitle] = useState('');
-  const [mode, setMode] = useState<'volume' | 'flat'>('volume');
-  const [chapterCount, setChapterCount] = useState(1);
+  const [mode, setMode] = useState<StructureMode | null>(null);
+  const [chapterStart, setChapterStart] = useState(1);
+  const [chapterEnd, setChapterEnd] = useState(100);
   const [parentPath, setParentPath] = useState('');
+  const [parentPick, setParentPick] = useState<DirectoryPickResult | null>(null);
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
 
   const handlePickCreatePath = async () => {
     setCreateError('');
-    const dir = await pickDirectory('选择小说存储位置');
-    if (dir) setParentPath(dir);
+    const dir = await (await createDialog()).pickDirectory('选择小说存储位置', 'storage');
+    if (dir) {
+      setParentPick(dir);
+      setParentPath(dir.path);
+    }
   };
 
   const handleCreate = async () => {
     const name = title.trim();
     if (!name) { setCreateError('请输入小说名称'); return; }
     if (!parentPath) { setCreateError('请选择存储位置'); return; }
-    if (mode === 'flat' && (chapterCount < 1 || chapterCount > 999)) { setCreateError('分章数量需要在 1-999 之间'); return; }
+    if (!mode) { setCreateError('请选择小说结构'); return; }
+    if (mode === 'flat' && (chapterStart < 1 || chapterEnd < chapterStart || chapterEnd > 9999)) {
+      setCreateError('章节范围需要是 1-9999，并且结束章不能小于开始章');
+      return;
+    }
     setCreating(true);
     try {
       const rootPath = `${parentPath}/${name}`;
-      const id = await createNovel(seriesId, name, mode, rootPath, mode === 'flat' ? chapterCount : undefined);
+      const id = await createNovel(seriesId, name, mode, rootPath, mode === 'flat' ? { start: chapterStart, end: chapterEnd } : undefined);
       await setActiveNovel(id);
       onComplete(id);
     } catch (e: any) {
@@ -64,37 +65,26 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
   // ========== 导入 Tab ==========
   const [step, setStep] = useState<ImportStep>('idle');
   const [importPath, setImportPath] = useState('');
+  const [importPick, setImportPick] = useState<DirectoryPickResult | null>(null);
   const [importName, setImportName] = useState('');
   const [structure, setStructure] = useState<NovelStructure | null>(null);
-  const [detectedMode, setDetectedMode] = useState<'volume' | 'flat' | null>(null);
-  const [selectedMode, setSelectedMode] = useState<'volume' | 'flat' | null>(null);
+  const [detectedMode, setDetectedMode] = useState<StructureMode | null>(null);
+  const [selectedMode, setSelectedMode] = useState<StructureMode | null>(null);
+  const [importChapterStart, setImportChapterStart] = useState(1);
+  const [importChapterEnd, setImportChapterEnd] = useState(1);
   const [importError, setImportError] = useState('');
 
   const handlePickImport = async () => {
     setImportError('');
-    if (isTauriEnv()) {
-      const dir = await pickDirectory('选择小说文件夹');
-      if (!dir) return;
-      setImportPath(dir);
-      setImportName(dir.split(/[/\\]/).pop() || '导入作品');
-      setStep('picked');
-    } else {
-      // 浏览器模式直接走 pickAndScan
-      setStep('scanning');
-      try {
-        const result = await pickAndScanDirectory();
-        if (!result) { setStep('idle'); return; }
-        setImportPath(result.rootName);
-        setImportName(result.rootName);
-        setStructure(result.structure);
-        setDetectedMode(result.structure.mode);
-        setSelectedMode(result.structure.mode);
-        setStep('result');
-      } catch (e: any) {
-        setImportError(e.message || '扫描失败');
-        setStep('idle');
-      }
-    }
+    const dir = await (await createDialog()).pickDirectory('选择小说文件夹', 'import');
+    if (!dir) return;
+    setImportPick(dir);
+    setImportPath(dir.path);
+    setImportName(dir.name || '导入作品');
+    setStructure(null);
+    setDetectedMode(null);
+    setSelectedMode(null);
+    setStep('picked');
   };
 
   const handleScan = async () => {
@@ -102,10 +92,16 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
     setStep('scanning');
     setImportError('');
     try {
-      const result = await scanNovelDirectory(importPath);
+      const result = importPick?.source === 'browser-upload'
+        ? scanBrowserFiles(importPick.files || [])?.structure
+        : await scanNovelDirectory(importPath);
+      if (!result) throw new Error('未检测到可导入的 .md/.txt 文件');
       setStructure(result);
       setDetectedMode(result.mode);
       setSelectedMode(result.mode);
+      const count = getTotalChapters(result);
+      setImportChapterStart(1);
+      setImportChapterEnd(Math.max(1, count));
       setStep('result');
     } catch (e: any) {
       setImportError(e.message || '扫描失败');
@@ -115,39 +111,65 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
 
   const handleImport = async () => {
     if (!structure || done.current || !selectedMode) return;
+    if (!importName.trim()) { setImportError('请输入小说名称'); return; }
+    if (selectedMode === 'flat' && (importChapterStart < 1 || importChapterEnd < importChapterStart)) {
+      setImportError('章节范围不正确');
+      return;
+    }
     done.current = true;
-    const info = { mode: selectedMode, prologue_path: structure.prologue?.relative_path || null };
-    const id = await importNovel(seriesId, importPath, info);
-    await setActiveNovel(id);
-    onComplete(id);
+    try {
+      const info = {
+        title: importName.trim(),
+        mode: selectedMode,
+        prologue_path: structure.prologue?.relative_path || null,
+        chapter_start: selectedMode === 'flat' ? importChapterStart : null,
+        chapter_end: selectedMode === 'flat' ? importChapterEnd : null,
+        structure_json: JSON.stringify(structure),
+        source_type: 'import' as const,
+      };
+      const id = await importNovel(seriesId, importPath, info);
+      await setActiveNovel(id);
+      onComplete(id);
+    } catch (e: any) {
+      done.current = false;
+      setImportError(e?.message || '导入失败');
+    }
   };
 
-  const totalChapters = (structure?.volumes || []).reduce((s, v) => s + v.chapters.length, 0)
-    + (structure?.root_chapters || []).length
-    + (structure?.prologue ? 1 : 0);
+  const getTotalChapters = (s: NovelStructure | null) => (s?.volumes || []).reduce((sum, v) => sum + v.chapters.length, 0)
+    + (s?.root_chapters || []).length
+    + (s?.prologue ? 1 : 0);
+  const totalChapters = getTotalChapters(structure);
   const modeMismatch = detectedMode && selectedMode && detectedMode !== selectedMode;
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'import', label: '📂 导入' },
-    { key: 'create', label: '🆕 新建' },
-  ];
-
   const fmtNum = (n: number) => String(n).padStart(3, '0');
+  const flatVolumeName = (start: number, end: number) => `第一卷 ${fmtNum(start)} ~ ${fmtNum(end)} 章`;
+  const createCanContinue = createStep === 1 ? !!parentPath : createStep === 2 ? !!title.trim() : !!mode;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-box" onClick={e => e.stopPropagation()} style={{ minWidth: 440, maxWidth: 540 }}>
         <div className="modal-header">
-          <div className="modal-tabs">
-            {tabs.map(t => (
-              <button key={t.key} className={`modal-tab${tab === t.key ? ' active' : ''}`}
-                onClick={() => setTab(t.key)}>{t.label}</button>
-            ))}
-          </div>
+          <h3>{tab === 'choice' ? '新建小说' : tab === 'create' ? '创建小说' : '导入小说'}</h3>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="modal-body">
+          {tab === 'choice' && (
+            <div className="dialog-center">
+              <div className="field-row novel-action-row">
+                <button className="field-option" onClick={() => setTab('create')}>
+                  <span>🆕</span>
+                  <span><b>创建小说</b><br /><em>选择位置后新建目录和章节结构</em></span>
+                </button>
+                <button className="field-option" onClick={() => setTab('import')}>
+                  <span>📂</span>
+                  <span><b>导入小说</b><br /><em>扫描现有目录，只记录元数据</em></span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ===== 导入 Tab ===== */}
           {tab === 'import' && (
             <div>
@@ -196,6 +218,9 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
                     <div className="path-card-full" style={{ fontSize: '0.72rem' }}>{importPath}</div>
                   </div>
 
+                  <label className="field-label">小说名称</label>
+                  <input value={importName} onChange={e => setImportName(e.target.value)} placeholder="输入小说名称" />
+
                   {/* 模式选择 + 推荐 */}
                   <fieldset className="field-fieldset">
                     <legend className="field-legend">📖 结构模式</legend>
@@ -228,6 +253,25 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
                     <span>📝 章节 <b>{totalChapters}</b></span>
                     {structure.prologue && <span>📄 有序章</span>}
                   </div>
+
+                  {selectedMode === 'flat' && (
+                    <div>
+                      <label className="field-label">章节索引范围</label>
+                      <div className="field-row" style={{ alignItems: 'center' }}>
+                        <input type="number" min={1}
+                          value={importChapterStart}
+                          onChange={e => setImportChapterStart(parseInt(e.target.value) || 1)}
+                          style={{ width: 90, textAlign: 'center' }} />
+                        <span style={{ color: 'var(--text-muted)' }}>~</span>
+                        <input type="number" min={importChapterStart}
+                          value={importChapterEnd}
+                          onChange={e => setImportChapterEnd(parseInt(e.target.value) || importChapterStart)}
+                          style={{ width: 90, textAlign: 'center' }} />
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>章</span>
+                      </div>
+                      <div className="path-preview">📁 {flatVolumeName(importChapterStart, importChapterEnd)}</div>
+                    </div>
+                  )}
 
                   {/* 目录树预览 */}
                   {totalChapters > 0 && (
@@ -289,52 +333,87 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
                 </div>
               ) : (
                 <div>
-                  <label className="field-label">小说名称</label>
-                  <input value={title} onChange={e => setTitle(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') handleCreate(); }}
-                    placeholder="输入小说标题" autoFocus />
-
-                  <label className="field-label">结构模式</label>
-                  <div className="field-row">
-                    <button className={`field-option${mode === 'volume' ? ' active' : ''}`}
-                      onClick={() => setMode('volume')}>
-                      <span>📁</span>
-                      <span><b>有分卷</b><br /><em>子文件夹为分卷，文件为章节</em></span>
-                    </button>
-                    <button className={`field-option${mode === 'flat' ? ' active' : ''}`}
-                      onClick={() => setMode('flat')}>
-                      <span>📄</span>
-                      <span><b>无分卷</b><br /><em>所有 .md 文件直接为章节</em></span>
-                    </button>
+                  <div className="dialog-steps">
+                    <span className={createStep === 1 ? 'active' : ''}>1 存储位置</span>
+                    <span className={createStep === 2 ? 'active' : ''}>2 小说名称</span>
+                    <span className={createStep === 3 ? 'active' : ''}>3 小说结构</span>
                   </div>
 
-                  {/* 分章：仅无分卷模式 */}
-                  {mode === 'flat' && (
+                  {createStep === 1 && (
                     <div>
-                      <label className="field-label">分章配置</label>
-                      <div className="field-row" style={{ alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', flexShrink: 0 }}>预生成</span>
-                        <input type="number" min={1} max={999}
-                          value={chapterCount} onChange={e => setChapterCount(parseInt(e.target.value) || 1)}
-                          style={{ width: 80, textAlign: 'center' }} />
-                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>章</span>
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', flex: 1 }}>
-                          ({fmtNum(1)}-{fmtNum(chapterCount)})
-                        </span>
+                      <label className="field-label">存储位置</label>
+                      <div className="field-row">
+                        <input value={parentPath} readOnly
+                          placeholder="点击 📁 选择文件夹..." style={{ flex: 1, cursor: 'pointer' }}
+                          onClick={handlePickCreatePath} autoFocus />
+                        <button className="modal-btn confirm" onClick={handlePickCreatePath} style={{ flexShrink: 0 }}>📁</button>
                       </div>
                     </div>
                   )}
 
-                  <label className="field-label">存储位置</label>
-                  <div className="field-row">
-                    <input value={parentPath} readOnly
-                      placeholder="点击 📁 选择文件夹..." style={{ flex: 1, cursor: 'pointer' }}
-                      onClick={handlePickCreatePath} />
-                    <button className="modal-btn confirm" onClick={handlePickCreatePath} style={{ flexShrink: 0 }}>📁</button>
-                  </div>
-                  {parentPath && (
-                    <div className="path-preview">
-                      📂 {parentPath}<b style={{ color: 'var(--accent)' }}>/{title || '小说名'}</b>
+                  {createStep === 2 && (
+                    <div>
+                      <label className="field-label">小说名称</label>
+                      <input value={title} onChange={e => setTitle(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter' && title.trim()) setCreateStep(3); }}
+                        placeholder="输入小说标题" autoFocus />
+                      {parentPath && <div className="path-preview">📂 {parentPath}</div>}
+                      {parentPick?.source === 'browser-storage' && (
+                        <p className="warn-text">浏览器模式会使用应用本地存储，不会创建系统文件夹。</p>
+                      )}
+                    </div>
+                  )}
+
+                  {createStep === 3 && (
+                    <div>
+                      <label className="field-label">小说结构</label>
+                      <div className="field-row">
+                        <button className={`field-option${mode === 'volume' ? ' active' : ''}`}
+                          onClick={() => setMode('volume')}>
+                          <span>📁</span>
+                          <span><b>有分卷</b><br /><em>先创建小说目录，分卷信息为空时稍后再处理</em></span>
+                        </button>
+                        <button className={`field-option${mode === 'flat' ? ' active' : ''}`}
+                          onClick={() => setMode('flat')}>
+                          <span>📄</span>
+                          <span><b>无分卷</b><br /><em>按章节范围预生成章节</em></span>
+                        </button>
+                      </div>
+
+                      {mode === 'flat' && (
+                        <div>
+                          <label className="field-label">章节索引范围</label>
+                          <div className="field-row" style={{ alignItems: 'center' }}>
+                            <input type="number" min={1} max={9999}
+                              value={chapterStart}
+                              onChange={e => setChapterStart(parseInt(e.target.value) || 1)}
+                              style={{ width: 90, textAlign: 'center' }} />
+                            <span style={{ color: 'var(--text-muted)' }}>~</span>
+                            <input type="number" min={chapterStart} max={9999}
+                              value={chapterEnd}
+                              onChange={e => setChapterEnd(parseInt(e.target.value) || chapterStart)}
+                              style={{ width: 90, textAlign: 'center' }} />
+                            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>章</span>
+                          </div>
+                          <div className="import-tree" style={{ marginTop: 8 }}>
+                            <div className="import-volume">📁 {flatVolumeName(chapterStart, chapterEnd)}</div>
+                            {Array.from({ length: Math.min(5, Math.max(0, chapterEnd - chapterStart + 1)) }, (_, index) => {
+                              const no = chapterStart + index;
+                              return <div key={no} className="import-node">📝 第{fmtNum(no)}章.md</div>;
+                            })}
+                            {chapterEnd - chapterStart + 1 > 5 && (
+                              <div className="import-node-more">⋯ 还有 {chapterEnd - chapterStart + 1 - 5} 章</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="path-preview">
+                        📂 {parentPath}<b style={{ color: 'var(--accent)' }}>/{title || '小说名'}</b>
+                      </div>
+                      {parentPick?.source === 'browser-storage' && (
+                        <p className="warn-text">浏览器模式只记录到浏览器存储；桌面端才会创建本地目录和章节文件。</p>
+                      )}
                     </div>
                   )}
 
@@ -346,15 +425,14 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
         </div>
 
         <div className="modal-footer">
-          <button className="modal-btn cancel" onClick={onClose}>取消</button>
-          {tab === 'import' && step === 'result' && structure && !importError && (
+          <button className="modal-btn cancel" onClick={tab === 'choice' ? onClose : () => setTab('choice')}>{tab === 'choice' ? '取消' : '返回'}</button>
+          {tab === 'import' && step === 'result' && structure && (
             <button className="modal-btn confirm" onClick={handleImport}>确认导入</button>
           )}
           {tab === 'create' && !creating && (
-            <button className="modal-btn confirm" onClick={handleCreate}
-              disabled={!title.trim() || !parentPath}>
-              创建小说
-            </button>
+            createStep < 3
+              ? <button className="modal-btn confirm" onClick={() => setCreateStep(createStep + 1)} disabled={!createCanContinue}>下一步</button>
+              : <button className="modal-btn confirm" onClick={handleCreate} disabled={!title.trim() || !parentPath || !mode}>创建小说</button>
           )}
         </div>
       </div>
