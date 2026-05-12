@@ -11,7 +11,7 @@ const SQL_CREATE = [
     id TEXT PRIMARY KEY, series_id TEXT NOT NULL REFERENCES series(id) ON DELETE CASCADE,
     title TEXT NOT NULL, root_path TEXT NOT NULL,
     structure_mode TEXT NOT NULL DEFAULT 'flat', prologue_path TEXT,
-    chapter_start INTEGER, chapter_end INTEGER,
+    chapter_start INTEGER, chapter_end INTEGER, chapter_count INTEGER,
     source_type TEXT DEFAULT 'create', structure_json TEXT,
     cover_path TEXT, description TEXT DEFAULT '', sort_order INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -103,6 +103,7 @@ export class SqliteProvider implements IStorageProvider {
     const migrations = [
       ['chapter_start', 'ALTER TABLE novels ADD COLUMN chapter_start INTEGER'],
       ['chapter_end', 'ALTER TABLE novels ADD COLUMN chapter_end INTEGER'],
+      ['chapter_count', 'ALTER TABLE novels ADD COLUMN chapter_count INTEGER'],
       ['source_type', "ALTER TABLE novels ADD COLUMN source_type TEXT DEFAULT 'create'"],
       ['structure_json', 'ALTER TABLE novels ADD COLUMN structure_json TEXT'],
     ];

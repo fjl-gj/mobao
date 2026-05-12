@@ -2,8 +2,7 @@ import { useState, useRef } from 'react';
 import { useProject } from '../hooks/useProject';
 import { createDialog } from '../core/dialog';
 import type { DirectoryPickResult } from '../core/dialog';
-import { scanNovelDirectory, type NovelStructure } from '../utils/fileOps';
-import { scanBrowserFiles } from '../utils/browserFs';
+import { registerBrowserDirectory, scanNovelDirectory, type NovelStructure } from '../utils/fileOps';
 
 type Tab = 'choice' | 'import' | 'create';
 type ImportStep = 'idle' | 'picked' | 'scanning' | 'result';
@@ -25,8 +24,7 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
   const [createStep, setCreateStep] = useState(1);
   const [title, setTitle] = useState('');
   const [mode, setMode] = useState<StructureMode | null>(null);
-  const [chapterStart, setChapterStart] = useState(1);
-  const [chapterEnd, setChapterEnd] = useState(100);
+  const [chapterCount, setChapterCount] = useState(100);
   const [parentPath, setParentPath] = useState('');
   const [parentPick, setParentPick] = useState<DirectoryPickResult | null>(null);
   const [createError, setCreateError] = useState('');
@@ -46,14 +44,14 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
     if (!name) { setCreateError('请输入小说名称'); return; }
     if (!parentPath) { setCreateError('请选择存储位置'); return; }
     if (!mode) { setCreateError('请选择小说结构'); return; }
-    if (mode === 'flat' && (chapterStart < 1 || chapterEnd < chapterStart || chapterEnd > 9999)) {
-      setCreateError('章节范围需要是 1-9999，并且结束章不能小于开始章');
+    if (mode === 'flat' && (chapterCount < 1 || chapterCount > 9999)) {
+      setCreateError('章节聚合数需要在 1-9999 之间');
       return;
     }
     setCreating(true);
     try {
       const rootPath = `${parentPath}/${name}`;
-      const id = await createNovel(seriesId, name, mode, rootPath, mode === 'flat' ? { start: chapterStart, end: chapterEnd } : undefined);
+      const id = await createNovel(seriesId, name, mode, rootPath, mode === 'flat' ? { count: chapterCount } : undefined);
       await setActiveNovel(id);
       onComplete(id);
     } catch (e: any) {
@@ -65,22 +63,22 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
   // ========== 导入 Tab ==========
   const [step, setStep] = useState<ImportStep>('idle');
   const [importPath, setImportPath] = useState('');
-  const [importPick, setImportPick] = useState<DirectoryPickResult | null>(null);
   const [importName, setImportName] = useState('');
   const [structure, setStructure] = useState<NovelStructure | null>(null);
   const [detectedMode, setDetectedMode] = useState<StructureMode | null>(null);
   const [selectedMode, setSelectedMode] = useState<StructureMode | null>(null);
-  const [importChapterStart, setImportChapterStart] = useState(1);
-  const [importChapterEnd, setImportChapterEnd] = useState(1);
+  const [importChapterCount, setImportChapterCount] = useState(1);
   const [importError, setImportError] = useState('');
 
   const handlePickImport = async () => {
     setImportError('');
     const dir = await (await createDialog()).pickDirectory('选择小说文件夹', 'import');
     if (!dir) return;
-    setImportPick(dir);
     setImportPath(dir.path);
     setImportName(dir.name || '导入作品');
+    if (dir.source === 'browser-upload') {
+      await registerBrowserDirectory(dir.path, dir.files || []);
+    }
     setStructure(null);
     setDetectedMode(null);
     setSelectedMode(null);
@@ -92,16 +90,13 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
     setStep('scanning');
     setImportError('');
     try {
-      const result = importPick?.source === 'browser-upload'
-        ? scanBrowserFiles(importPick.files || [])?.structure
-        : await scanNovelDirectory(importPath);
-      if (!result) throw new Error('未检测到可导入的 .md/.txt 文件');
+      const result = await scanNovelDirectory(importPath);
+      const count = getTotalChapters(result);
+      if (count === 0) throw new Error('未检测到可导入的 .md/.txt 文件');
       setStructure(result);
       setDetectedMode(result.mode);
       setSelectedMode(result.mode);
-      const count = getTotalChapters(result);
-      setImportChapterStart(1);
-      setImportChapterEnd(Math.max(1, count));
+      setImportChapterCount(Math.max(1, count));
       setStep('result');
     } catch (e: any) {
       setImportError(e.message || '扫描失败');
@@ -112,8 +107,8 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
   const handleImport = async () => {
     if (!structure || done.current || !selectedMode) return;
     if (!importName.trim()) { setImportError('请输入小说名称'); return; }
-    if (selectedMode === 'flat' && (importChapterStart < 1 || importChapterEnd < importChapterStart)) {
-      setImportError('章节范围不正确');
+    if (selectedMode === 'flat' && importChapterCount < 1) {
+      setImportError('章节聚合数不正确');
       return;
     }
     done.current = true;
@@ -122,8 +117,7 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
         title: importName.trim(),
         mode: selectedMode,
         prologue_path: structure.prologue?.relative_path || null,
-        chapter_start: selectedMode === 'flat' ? importChapterStart : null,
-        chapter_end: selectedMode === 'flat' ? importChapterEnd : null,
+        chapter_count: selectedMode === 'flat' ? importChapterCount : null,
         structure_json: JSON.stringify(structure),
         source_type: 'import' as const,
       };
@@ -140,15 +134,18 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
     + (s?.root_chapters || []).length
     + (s?.prologue ? 1 : 0);
   const totalChapters = getTotalChapters(structure);
+  const importFlatChapters = structure
+    ? [...structure.volumes.flatMap(v => v.chapters), ...structure.root_chapters]
+    : [];
   const modeMismatch = detectedMode && selectedMode && detectedMode !== selectedMode;
 
   const fmtNum = (n: number) => String(n).padStart(3, '0');
-  const flatVolumeName = (start: number, end: number) => `第一卷 ${fmtNum(start)} ~ ${fmtNum(end)} 章`;
+  const flatVolumeName = (count: number) => `第一卷（${count}章）`;
   const createCanContinue = createStep === 1 ? !!parentPath : createStep === 2 ? !!title.trim() : !!mode;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-box" onClick={e => e.stopPropagation()} style={{ minWidth: 440, maxWidth: 540 }}>
+      <div className="modal-box novel-dialog-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{tab === 'choice' ? '新建小说' : tab === 'create' ? '创建小说' : '导入小说'}</h3>
           <button className="modal-close" onClick={onClose}>✕</button>
@@ -256,20 +253,15 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
 
                   {selectedMode === 'flat' && (
                     <div>
-                      <label className="field-label">章节索引范围</label>
+                      <label className="field-label">章节聚合数</label>
                       <div className="field-row" style={{ alignItems: 'center' }}>
-                        <input type="number" min={1}
-                          value={importChapterStart}
-                          onChange={e => setImportChapterStart(parseInt(e.target.value) || 1)}
-                          style={{ width: 90, textAlign: 'center' }} />
-                        <span style={{ color: 'var(--text-muted)' }}>~</span>
-                        <input type="number" min={importChapterStart}
-                          value={importChapterEnd}
-                          onChange={e => setImportChapterEnd(parseInt(e.target.value) || importChapterStart)}
+                        <input type="number" min={1} max={9999}
+                          value={importChapterCount}
+                          onChange={e => setImportChapterCount(parseInt(e.target.value) || 1)}
                           style={{ width: 90, textAlign: 'center' }} />
                         <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>章</span>
                       </div>
-                      <div className="path-preview">📁 {flatVolumeName(importChapterStart, importChapterEnd)}</div>
+                      <div className="path-preview">📁 {flatVolumeName(importChapterCount)}</div>
                     </div>
                   )}
 
@@ -279,18 +271,30 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
                       {structure.prologue && (
                         <div className="import-node prologue">📄 序章 {structure.prologue.name}</div>
                       )}
-                      {structure.volumes.map((v, i) => (
-                        <div key={i}>
-                          <div className="import-volume">📁 {v.name} ({v.chapters.length}章)</div>
-                          {v.chapters.slice(0, 5).map((c, j) => (
+                      {selectedMode === 'flat' ? (
+                        <div>
+                          <div className="import-volume">📁 {flatVolumeName(importChapterCount)}</div>
+                          {importFlatChapters.slice(0, 5).map((c, j) => (
                             <div key={j} className="import-node">📝 {c.name}</div>
                           ))}
-                          {v.chapters.length > 5 && <div className="import-node-more">⋯ 还有 {v.chapters.length - 5} 章</div>}
+                          {importFlatChapters.length > 5 && <div className="import-node-more">⋯ 还有 {importFlatChapters.length - 5} 章</div>}
                         </div>
-                      ))}
-                      {structure.root_chapters.map((c, i) => (
-                        <div key={i} className="import-node">📝 {c.name}</div>
-                      ))}
+                      ) : (
+                        <>
+                          {structure.volumes.map((v, i) => (
+                            <div key={i}>
+                              <div className="import-volume">📁 {v.name} ({v.chapters.length}章)</div>
+                              {v.chapters.slice(0, 5).map((c, j) => (
+                                <div key={j} className="import-node">📝 {c.name}</div>
+                              ))}
+                              {v.chapters.length > 5 && <div className="import-node-more">⋯ 还有 {v.chapters.length - 5} 章</div>}
+                            </div>
+                          ))}
+                          {structure.root_chapters.map((c, i) => (
+                            <div key={i} className="import-node">📝 {c.name}</div>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
 
@@ -376,33 +380,28 @@ export default function NovelDialog({ seriesId, initialTab, onComplete, onClose 
                         <button className={`field-option${mode === 'flat' ? ' active' : ''}`}
                           onClick={() => setMode('flat')}>
                           <span>📄</span>
-                          <span><b>无分卷</b><br /><em>按章节范围预生成章节</em></span>
+                          <span><b>无分卷</b><br /><em>按章节聚合数预生成章节</em></span>
                         </button>
                       </div>
 
                       {mode === 'flat' && (
                         <div>
-                          <label className="field-label">章节索引范围</label>
+                          <label className="field-label">章节聚合数</label>
                           <div className="field-row" style={{ alignItems: 'center' }}>
                             <input type="number" min={1} max={9999}
-                              value={chapterStart}
-                              onChange={e => setChapterStart(parseInt(e.target.value) || 1)}
-                              style={{ width: 90, textAlign: 'center' }} />
-                            <span style={{ color: 'var(--text-muted)' }}>~</span>
-                            <input type="number" min={chapterStart} max={9999}
-                              value={chapterEnd}
-                              onChange={e => setChapterEnd(parseInt(e.target.value) || chapterStart)}
+                              value={chapterCount}
+                              onChange={e => setChapterCount(parseInt(e.target.value) || 1)}
                               style={{ width: 90, textAlign: 'center' }} />
                             <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>章</span>
                           </div>
                           <div className="import-tree" style={{ marginTop: 8 }}>
-                            <div className="import-volume">📁 {flatVolumeName(chapterStart, chapterEnd)}</div>
-                            {Array.from({ length: Math.min(5, Math.max(0, chapterEnd - chapterStart + 1)) }, (_, index) => {
-                              const no = chapterStart + index;
+                            <div className="import-volume">📁 {flatVolumeName(chapterCount)}</div>
+                            {Array.from({ length: Math.min(5, chapterCount) }, (_, index) => {
+                              const no = index + 1;
                               return <div key={no} className="import-node">📝 第{fmtNum(no)}章.md</div>;
                             })}
-                            {chapterEnd - chapterStart + 1 > 5 && (
-                              <div className="import-node-more">⋯ 还有 {chapterEnd - chapterStart + 1 - 5} 章</div>
+                            {chapterCount > 5 && (
+                              <div className="import-node-more">⋯ 还有 {chapterCount - 5} 章</div>
                             )}
                           </div>
                         </div>

@@ -8,6 +8,7 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
   const { state: novelState, dispatch } = useNovel();
   const { getChapterNote } = useWritingTools();
   const { novelStructure, activeNovelId } = projectState;
+  const activeNovel = activeNovelId ? projectState.novels.find(n => n.id === activeNovelId) : null;
 
   if (!activeNovelId) {
     return <div className="empty-state"><span>📚</span><span>请先选择一部小说</span></div>;
@@ -17,6 +18,9 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
   }
 
   const getTitle = (name: string) => name.replace(/\.(md|txt)$/, '');
+  const chapterTotal = novelStructure.volumes.reduce((sum, volume) => sum + volume.chapters.length, 0)
+    + novelStructure.root_chapters.length
+    + (novelStructure.prologue ? 1 : 0);
 
   const handleSelect = async (path: string, name: string, volumeTitle?: string) => {
     if (!activeNovelId) return;
@@ -41,6 +45,15 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
 
   return (
     <div className="tree-scroll">
+      {activeNovel && (
+        <div className="tree-novel-meta">
+          <div className="tree-novel-title">{activeNovel.title}</div>
+          <div className="tree-novel-sub">
+            <span>{activeNovel.structure_mode === 'volume' ? '有分卷' : '无分卷'}</span>
+            <span>{chapterTotal}章</span>
+          </div>
+        </div>
+      )}
       {novelStructure.prologue && (
         <div className="tree-node prologue" onClick={() => handleSelect(novelStructure.prologue!.relative_path, novelStructure.prologue!.name, '序章')}>
           <span className="tree-icon">📄</span>

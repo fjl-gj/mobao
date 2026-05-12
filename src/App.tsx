@@ -143,7 +143,7 @@ function App() {
 
       <div className="main-body">
         {/* Desktop: sidebar always visible. Tablet/Mobile: slide-out drawer */}
-        <div className={`sidebar-wrapper ${responsive.sidebarOpen ? 'open' : ''}`}>
+        <div className={`sidebar-wrapper ${responsive.sidebarOpen ? 'open' : 'collapsed'}`}>
           <Sidebar onClose={responsive.isDesktop ? undefined : responsive.closeSidebar} />
         </div>
 

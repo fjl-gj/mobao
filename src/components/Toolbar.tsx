@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNovel } from '../hooks/useNovel';
 import { useProject } from '../hooks/useProject';
 import { useResponsiveCtx } from '../contexts/ResponsiveContext';
-import { isTauriEnv } from '../utils/db';
+import { platformCapabilities } from '../core/platform-capabilities';
 import ThemeToggle from './ThemeToggle';
 
 export default function Toolbar({ onSearch }: { onSearch: () => void }) {
@@ -10,7 +10,7 @@ export default function Toolbar({ onSearch }: { onSearch: () => void }) {
   const wordInput = useRef<HTMLInputElement>(null);
   const { state, dispatch, importMD, importWord, exportMD } = useNovel();
   const { state: { activeNovelId } } = useProject();
-  const { isDesktop, openSidebar, togglePreview, previewOpen, closeSidebar } = useResponsiveCtx();
+  const { isDesktop, toggleSidebar, togglePreview, previewOpen } = useResponsiveCtx();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const wordCount = (() => {
@@ -45,7 +45,7 @@ export default function Toolbar({ onSearch }: { onSearch: () => void }) {
 
   return (
     <div className="toolbar">
-      <button className="toolbar-menu-btn" onClick={isDesktop ? () => {} : (openSidebar)} title="菜单">
+      <button className="toolbar-menu-btn" onClick={toggleSidebar} title="侧边栏">
         ☰
       </button>
 
@@ -66,10 +66,6 @@ export default function Toolbar({ onSearch }: { onSearch: () => void }) {
           </button>
           {menuOpen && (
             <div className="toolbar-overflow-menu">
-              <button onClick={() => { dispatch({ type: 'SHOW_MODAL', payload: { type: 'newVolume' } }); setMenuOpen(false); }} disabled={!activeNovelId}>📁 新卷</button>
-              <button onClick={() => { mdInput.current?.click(); setMenuOpen(false); }}>📥 导入MD</button>
-              <button onClick={() => { wordInput.current?.click(); setMenuOpen(false); }}>📥 导入Word</button>
-              <button onClick={() => { exportMD(); setMenuOpen(false); }}>📤 导出MD</button>
               <button onClick={() => { onSearch(); setMenuOpen(false); }} disabled={!activeNovelId}>🔍 搜索</button>
               <ThemeToggle />
             </div>
@@ -81,7 +77,7 @@ export default function Toolbar({ onSearch }: { onSearch: () => void }) {
         <span className="toolbar-stats">
           <span>{wordCount}字</span>
           <span>/{totalWordCount}</span>
-          {!isTauriEnv() && <span className="browser-badge">DEV</span>}
+          {platformCapabilities.usesBrowserWorkspace && <span className="browser-badge">WEB</span>}
         </span>
       )}
 

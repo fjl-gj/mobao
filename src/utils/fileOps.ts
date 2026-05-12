@@ -52,3 +52,8 @@ export async function writeTextFile(path: string, content: string): Promise<void
 export async function listDirectory(dirPath: string): Promise<FileInfo[]> {
   return (await ensure()).listDirectory(dirPath);
 }
+
+export async function registerBrowserDirectory(rootPath: string, files: File[]): Promise<void> {
+  const { registerBrowserDirectory: register } = await import('../core/fs/browser-fs');
+  await register(rootPath, files);
+}
