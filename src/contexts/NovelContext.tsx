@@ -209,7 +209,7 @@ export function NovelProvider({ children }: { children: React.ReactNode }) {
     if (saving.current) return;
     saving.current = true;
     try {
-      await writeTextFile(rootPath, relativePath, content);
+      await writeTextFile(`${rootPath}/${relativePath}`, content);
     } finally { saving.current = false; }
   }, []);
 

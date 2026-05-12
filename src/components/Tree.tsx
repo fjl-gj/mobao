@@ -23,7 +23,7 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
     const novel = projectState.novels.find(n => n.id === activeNovelId);
     if (!novel) return;
     try {
-      const content = await readTextFile(novel.root_path, path);
+      const content = await readTextFile(`${novel.root_path}/${path}`);
       dispatch({
         type: 'UPSERT_CHAPTER',
         payload: {

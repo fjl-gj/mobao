@@ -1,23 +1,21 @@
 import { useState } from 'react';
 import Tree from './Tree';
 import Outline from './Outline';
-import SeriesPanel from './SeriesPanel';
-import NovelsPanel from './NovelsPanel';
+import ProjectExplorer from './ProjectExplorer';
 import CharactersPanel from './CharactersPanel';
 import WorldPanel from './WorldPanel';
 import TimelinePanel from './TimelinePanel';
 import PlotPanel from './PlotPanel';
 import { useResponsiveCtx } from '../contexts/ResponsiveContext';
 
-type SidebarTab = 'series' | 'novels' | 'toc' | 'outline' | 'characters' | 'world' | 'timeline' | 'plot';
+type SidebarTab = 'project' | 'toc' | 'outline' | 'characters' | 'world' | 'timeline' | 'plot';
 
 export default function Sidebar({ onClose }: { onClose?: () => void }) {
-  const [tab, setTab] = useState<SidebarTab>('series');
+  const [tab, setTab] = useState<SidebarTab>('project');
   const { isMobile } = useResponsiveCtx();
 
   const tabs: { key: SidebarTab; label: string }[] = [
-    { key: 'series', label: '📚 项目' },
-    { key: 'novels', label: '📖 小说' },
+    { key: 'project', label: '📚 项目' },
     { key: 'toc', label: '📑 目录' },
     { key: 'outline', label: '🧭 大纲' },
     { key: 'characters', label: '👤 人物' },
@@ -28,8 +26,7 @@ export default function Sidebar({ onClose }: { onClose?: () => void }) {
 
   const renderPanel = () => {
     switch (tab) {
-      case 'series': return <SeriesPanel onSelectNovel={onClose} />;
-      case 'novels': return <NovelsPanel onSelectNovel={onClose} />;
+      case 'project': return <ProjectExplorer onSelectNovel={onClose} />;
       case 'toc': return <Tree onSelect={onClose} />;
       case 'outline': return <Outline />;
       case 'characters': return <CharactersPanel />;

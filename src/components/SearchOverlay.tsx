@@ -45,7 +45,7 @@ export default function SearchOverlay({ onClose }: { onClose: () => void }) {
     const found: SearchResult[] = [];
     for (const { path, title } of allPaths) {
       try {
-        const content = await readTextFile(rootPath, path);
+        const content = await readTextFile(`${rootPath}/${path}`);
         const lines = content.split('\n');
         for (let i = 0; i < lines.length; i++) {
           if (lines[i].toLowerCase().includes(query.toLowerCase())) {

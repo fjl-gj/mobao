@@ -61,6 +61,7 @@ type ProjectAction =
   | { type: 'UPDATE_SERIES'; payload: Series }
   | { type: 'REMOVE_SERIES'; payload: string }
   | { type: 'SET_NOVELS'; payload: Novel[] }
+  | { type: 'MERGE_NOVELS'; payload: { seriesId: string; novels: Novel[] } }
   | { type: 'ADD_NOVEL'; payload: Novel }
   | { type: 'UPDATE_NOVEL'; payload: Novel }
   | { type: 'REMOVE_NOVEL'; payload: string }
@@ -84,6 +85,13 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       activeSeriesId: state.activeSeriesId === action.payload ? null : state.activeSeriesId,
     };
     case 'SET_NOVELS': return { ...state, novels: action.payload };
+    case 'MERGE_NOVELS': return {
+      ...state,
+      novels: [
+        ...state.novels.filter(n => n.series_id !== action.payload.seriesId),
+        ...action.payload.novels,
+      ],
+    };
     case 'ADD_NOVEL': return { ...state, novels: [...state.novels, action.payload] };
     case 'UPDATE_NOVEL': return {
       ...state,
@@ -113,7 +121,7 @@ interface ProjectContextType {
   deleteSeries: (id: string) => Promise<void>;
   loadNovels: (seriesId: string) => Promise<void>;
   createNovel: (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string) => Promise<string>;
-  importNovel: (seriesId: string, rootPath: string) => Promise<string>;
+  importNovel: (seriesId: string, rootPath: string, existingStructure?: { mode: 'flat' | 'volume'; prologue_path: string | null }) => Promise<string>;
   updateNovel: (id: string, data: Partial<Novel>) => Promise<void>;
   deleteNovel: (id: string) => Promise<void>;
   setActiveSeries: (id: string | null) => void;
@@ -176,20 +184,20 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const loadNovels = useCallback(async (seriesId: string) => {
     const novels = await getAll<Novel>('novels', 'series_id = ?', [seriesId]);
-    dispatch({ type: 'SET_NOVELS', payload: novels });
+    dispatch({ type: 'MERGE_NOVELS', payload: { seriesId, novels } });
   }, []);
 
   const createNovel = useCallback(async (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string): Promise<string> => {
     const id = generateId();
     const now = new Date().toISOString();
-    if (!isBrowser()) {
-      if (mode === 'volume') {
-        await createVolume(rootPath, '分卷一');
-        await createChapter(rootPath, '分卷一', '第一章');
-      } else {
-        await writeTextFile(rootPath, '第一章.md', '# 第一章\n\n');
+      if (!isBrowser()) {
+        if (mode === 'volume') {
+          const volPath = await createVolume(rootPath, '分卷一');
+          await createChapter(volPath, '第一章');
+        } else {
+          await writeTextFile(`${rootPath}/第一章.md`, '# 第一章\n\n');
+        }
       }
-    }
     const novel: Novel = {
       id,
       series_id: seriesId,
@@ -208,16 +216,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     return id;
   }, [state.novels.length]);
 
-  const importNovel = useCallback(async (seriesId: string, rootPath: string): Promise<string> => {
-    let mode: 'flat' | 'volume' = 'volume';
-    let prologue: string | null = null;
-    try {
-      const structure = await scanNovelDirectory(rootPath);
-      mode = structure.mode;
-      prologue = structure.prologue?.relative_path || null;
-    } catch {
-      // 浏览器模式或扫描失败，使用默认值
-      console.warn('scanNovelDirectory 不可用（浏览器模式），使用默认结构');
+  const importNovel = useCallback(async (seriesId: string, rootPath: string, existingStructure?: { mode: 'flat' | 'volume'; prologue_path: string | null }): Promise<string> => {
+    let mode: 'flat' | 'volume' = existingStructure?.mode || 'volume';
+    let prologue: string | null = existingStructure?.prologue_path || null;
+    if (!existingStructure) {
+      try {
+        const structure = await scanNovelDirectory(rootPath);
+        mode = structure.mode;
+        prologue = structure.prologue?.relative_path || null;
+      } catch {
+        console.warn('scanNovelDirectory 不可用，使用默认结构');
+      }
     }
     const title = rootPath.split(/[/\\]/).pop() || '导入的小说';
     const id = generateId();

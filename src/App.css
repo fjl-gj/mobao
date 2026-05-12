@@ -434,6 +434,77 @@ input::placeholder { color: var(--text-muted); }
 }
 [data-theme='dark'] .fsr-bottombar { background: var(--bg-sidebar); border-color: var(--border); }
 
+/* ===== Context Menu ===== */
+.ctx-menu {
+  position: fixed; z-index: 500; min-width: 150px;
+  background: #fff; border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  padding: 4px 0; animation: fadeIn 0.1s ease;
+}
+[data-theme='dark'] .ctx-menu { background: var(--bg-editor); }
+.ctx-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 8px 16px; font-size: 0.82rem;
+  color: var(--text); border: none; background: none;
+  cursor: pointer; transition: background 0.1s;
+  min-height: 36px; text-align: left;
+}
+.ctx-item:hover { background: var(--accent-light); }
+.ctx-item:disabled { opacity: 0.35; cursor: not-allowed; }
+.ctx-danger { color: #e74c3c; }
+.ctx-danger:hover { background: #fde8e8; color: #c0392b; }
+[data-theme='dark'] .ctx-danger:hover { background: #3d2020; }
+.ctx-sep { height: 1px; background: var(--border); margin: 4px 8px; }
+.ctx-icon { font-size: 0.85rem; flex-shrink: 0; }
+
+/* ===== Modal Danger ===== */
+.modal-btn-danger { background: #e74c3c !important; color: #fff !important; }
+.modal-btn-danger:hover { background: #c0392b !important; }
+
+/* ===== Project Explorer ===== */
+.project-row {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border);
+  font-size: 0.82rem; min-height: var(--touch-target);
+  transition: background 0.1s; user-select: none;
+}
+.project-row:hover { background: var(--accent-light); }
+.project-row.active { background: var(--accent); color: #fff; }
+.project-row .project-tag { color: inherit; }
+.project-arrow { width: 16px; flex-shrink: 0; font-size: 0.75rem; text-align: center; color: var(--text-muted); }
+.project-row.active .project-arrow { color: inherit; }
+.project-icon { flex-shrink: 0; }
+.project-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-count { font-size: 0.7rem; color: var(--text-muted); background: var(--border); padding: 1px 7px; border-radius: 10px; flex-shrink: 0; }
+.project-row.active .project-count { color: inherit; background: rgba(255,255,255,0.25); }
+.project-tag { font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: var(--accent-light); color: var(--accent); flex-shrink: 0; }
+.project-row.active .project-tag { background: rgba(255,255,255,0.25); color: inherit; }
+.project-children { padding-left: 8px; border-left: 2px solid var(--border); margin-left: 16px; }
+.project-children .project-row { font-size: 0.8rem; padding-left: 16px; }
+.project-empty { padding: 6px 16px; font-size: 0.75rem; color: var(--text-muted); }
+.link-btn { color: var(--accent); cursor: pointer; font-size: inherit; border: none; background: none; text-decoration: underline; }
+.link-btn:hover { color: var(--accent-hover); }
+.panel-header-btn { font-size: 1rem; padding: 0 8px; color: var(--accent); cursor: pointer; border: none; background: none; min-height: var(--touch-target); min-width: var(--touch-target); display: flex; align-items: center; justify-content: center; border-radius: 4px; }
+.panel-header-btn:hover { background: var(--accent-light); }
+
+/* ===== Import Dialog ===== */
+.import-summary {
+  background: var(--bg-sidebar); border-radius: var(--radius); padding: 10px 14px;
+  margin-bottom: 12px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.82rem;
+}
+.import-tree {
+  max-height: 260px; overflow-y: auto; font-size: 0.78rem;
+  background: var(--bg); border-radius: var(--radius); padding: 8px 10px;
+}
+.import-volume {
+  font-weight: 600; padding: 4px 0; margin-top: 4px;
+  display: flex; align-items: center; gap: 6px;
+}
+.import-chapter-count { font-weight: 400; color: var(--text-muted); font-size: 0.72rem; }
+.import-node { padding: 3px 0 3px 16px; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+.import-node.prologue { padding-left: 8px; color: var(--accent); }
+.import-node-more { padding: 3px 0 3px 16px; color: var(--text-muted); font-style: italic; font-size: 0.72rem; }
+
 /* ===== Empty State ===== */
 .empty-state {
   display: flex; flex-direction: column; align-items: center;

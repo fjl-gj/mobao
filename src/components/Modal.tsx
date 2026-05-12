@@ -45,7 +45,8 @@ export default function Modal() {
           }
           volumeRelativePath = volumeTitle;
         }
-        await createChapter(activeNovel.root_path, volumeRelativePath, title);
+        const chPath = volumeRelativePath ? `${activeNovel.root_path}/${volumeRelativePath}` : activeNovel.root_path;
+        await createChapter(chPath, title);
         const fileTitle = sanitizeFileName(title);
         const relativePath = volumeRelativePath ? `${volumeRelativePath}/${fileTitle}.md` : `${fileTitle}.md`;
         dispatch({
