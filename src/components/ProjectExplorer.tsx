@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useProject } from '../hooks/useProject';
 import ContextMenu from './ContextMenu';
 import ConfirmDialog from './ConfirmDialog';
-import ImportDialog from './ImportDialog';
+import NovelDialog from './NovelDialog';
 
 type CtxTarget = { type: 'series'; id: string; name: string } | { type: 'novel'; id: string; title: string; seriesId: string } | null;
 
@@ -16,7 +16,7 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
     text: string;
     target: CtxTarget;
   } | null>(null);
-  const [importDlg, setImportDlg] = useState(false);
+  const [novelDlg, setNovelDlg] = useState<'import' | 'create' | null>(null);
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set());
   const { activeSeriesId, activeNovelId, series, novels } = state;
 
@@ -72,9 +72,14 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
     confirmAction();
   };
 
-  const handleCreateNovel = async (seriesId: string) => {
-    // 使用导入对话框（支持选择目录 + 预览结构）
-    setImportDlg(true);
+  const handleCreateNovel = (seriesId: string) => {
+    setNovelDlg('create');
+    setActiveSeries(seriesId);
+    loadNovels(seriesId);
+  };
+
+  const handleImportNovel = (seriesId: string) => {
+    setNovelDlg('import');
     setActiveSeries(seriesId);
     loadNovels(seriesId);
   };
@@ -82,7 +87,9 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
   const getSeriesNovels = (seriesId: string) => novels.filter(n => n.series_id === seriesId);
 
   const seriesMenuItems = (sid: string, sname: string) => [
-    { label: '新建小说', icon: '📖', action: () => handleCreateNovel(sid) },
+    { label: '新建小说', icon: '🆕', action: () => handleCreateNovel(sid) },
+    { label: '导入小说', icon: '📂', action: () => handleImportNovel(sid) },
+    { sep: true },
     { label: '重命名集合', icon: '✎', action: () => setConfirmDlg({
       type: 'rename', title: '重命名集合', text: `修改「${sname}」名称为:`, target: { type: 'series', id: sid, name: sname },
     })},
@@ -166,7 +173,9 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
                   {snovels.length === 0 && (
                     <div className="project-empty">
                       <span>暂无小说 — </span>
-                      <button onClick={() => handleCreateNovel(s.id)} className="link-btn">新建 / 导入</button>
+                      <button onClick={() => handleCreateNovel(s.id)} className="link-btn">新建</button>
+                      <span> / </span>
+                      <button onClick={() => handleImportNovel(s.id)} className="link-btn">导入</button>
                     </div>
                   )}
                 </div>
@@ -203,12 +212,13 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
         />
       )}
 
-      {/* 导入对话框 */}
-      {importDlg && state.activeSeriesId && (
-        <ImportDialog
+      {/* 新建/导入统一弹窗 */}
+      {novelDlg && state.activeSeriesId && (
+        <NovelDialog
           seriesId={state.activeSeriesId}
-          onComplete={() => setImportDlg(false)}
-          onClose={() => setImportDlg(false)}
+          initialTab={novelDlg}
+          onComplete={() => setNovelDlg(null)}
+          onClose={() => setNovelDlg(null)}
         />
       )}
     </div>

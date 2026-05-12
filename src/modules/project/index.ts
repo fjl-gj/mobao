@@ -5,4 +5,4 @@ export { ProjectProvider, ProjectContext } from '../../contexts/ProjectContext';
 export type { Series, Novel } from '../../contexts/ProjectContext';
 
 export { default as ProjectExplorer } from '../../components/ProjectExplorer';
-export { default as ImportDialog } from '../../components/ImportDialog';
+export { default as NovelDialog } from '../../components/NovelDialog';

@@ -99,8 +99,25 @@ export default function Editor() {
   }, [active?.title]);
 
   const handleFocusToggle = () => setFocusMode(!focusMode);
-
   const note = currentPath ? getChapterNote(currentPath) : '';
+
+  // 无小说选中 → 欢迎页
+  if (!activeNovel) {
+    return (
+      <div className={`editor-area${focusMode ? ' focus-mode' : ''}`}>
+        <div className="editor-welcome">
+          <div className="welcome-icon">📚</div>
+          <h2>墨宝 · 小说编辑器</h2>
+          <p>在左侧「项目」中新建或导入一部小说开始写作</p>
+          <div className="welcome-steps">
+            <span>1. 创建或选择一个集合</span>
+            <span>2. 新建 / 导入小说</span>
+            <span>3. 从目录中选择章节开始写作</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`editor-area ${focusMode ? 'focus-mode' : ''}`}>

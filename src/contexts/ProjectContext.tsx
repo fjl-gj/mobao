@@ -120,7 +120,7 @@ interface ProjectContextType {
   renameSeries: (id: string, name: string) => Promise<void>;
   deleteSeries: (id: string) => Promise<void>;
   loadNovels: (seriesId: string) => Promise<void>;
-  createNovel: (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string) => Promise<string>;
+  createNovel: (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string, chapterCount?: number) => Promise<string>;
   importNovel: (seriesId: string, rootPath: string, existingStructure?: { mode: 'flat' | 'volume'; prologue_path: string | null }) => Promise<string>;
   updateNovel: (id: string, data: Partial<Novel>) => Promise<void>;
   deleteNovel: (id: string) => Promise<void>;
@@ -187,7 +187,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'MERGE_NOVELS', payload: { seriesId, novels } });
   }, []);
 
-  const createNovel = useCallback(async (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string): Promise<string> => {
+  const createNovel = useCallback(async (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string, chapterCount?: number): Promise<string> => {
     const id = generateId();
     const now = new Date().toISOString();
       if (!isBrowser()) {
@@ -195,7 +195,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
           const volPath = await createVolume(rootPath, '分卷一');
           await createChapter(volPath, '第一章');
         } else {
-          await writeTextFile(`${rootPath}/第一章.md`, '# 第一章\n\n');
+          const count = Math.max(1, Math.min(999, chapterCount || 1));
+          for (let i = 1; i <= count; i++) {
+            const cn = String(i).padStart(3, '0');
+            await writeTextFile(`${rootPath}/第${cn}章.md`, `# 第${i}章\n\n`);
+          }
         }
       }
     const novel: Novel = {
