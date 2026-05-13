@@ -15,6 +15,8 @@ export function loadState(): NovelState {
         outline: data.outline || [],
         activeChapterId: data.activeChapterId || null,
         previewMode: data.previewMode || "preview",
+        workspaceMode: data.workspaceMode || "read",
+        contextTab: data.contextTab || "preview",
         toasts: [],
         modal: null,
       };
@@ -28,6 +30,8 @@ export function loadState(): NovelState {
     outline: [],
     activeChapterId: null,
     previewMode: "preview",
+    workspaceMode: "read",
+    contextTab: "preview",
     toasts: [],
     modal: null,
   };

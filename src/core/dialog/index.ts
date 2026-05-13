@@ -1,2 +1,2 @@
-export type { IDialog, DirectoryScanResult } from './types';
+export type { IDialog, DirectoryPickResult, DirectoryScanResult } from './types';
 export { createDialog, getDialog } from './factory';

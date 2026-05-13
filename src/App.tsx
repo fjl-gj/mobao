@@ -8,7 +8,7 @@ import Toolbar from './components/Toolbar';
 import Sidebar from './components/Sidebar';
 import MobileNav from './components/MobileNav';
 import Editor from './components/Editor';
-import Preview from './components/Preview';
+import ContextPanel from './components/ContextPanel';
 import Modal from './components/Modal';
 import Toast from './components/Toast';
 import FullScreenReader from './components/FullScreenReader';
@@ -154,12 +154,12 @@ function App() {
 
         <Editor />
 
-        {/* Desktop: preview always visible in panel. Mobile: full-screen overlay */}
+        {/* Desktop: contextual tools always visible in panel. Mobile: full-screen overlay */}
         {responsive.isDesktop ? (
-          <Preview onEnterFullscreen={handleEnterFullscreen} />
+          <ContextPanel onEnterFullscreen={handleEnterFullscreen} />
         ) : responsive.previewOpen && (
           <div className="mobile-preview-overlay">
-            <Preview onEnterFullscreen={handleEnterFullscreen} onClose={responsive.closePreview} isMobile />
+            <ContextPanel onEnterFullscreen={handleEnterFullscreen} onClose={responsive.closePreview} isMobile />
           </div>
         )}
       </div>

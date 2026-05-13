@@ -9,6 +9,7 @@ import { useProject } from '../hooks/useProject';
 import { useSettings } from '../hooks/useSettings';
 import { useWritingTools } from '../hooks/useWritingTools';
 import { readTextFile } from '../utils/fileOps';
+import { renderMarkdown } from '../utils/io';
 import EditorToolbar from './EditorToolbar';
 
 export default function Editor() {
@@ -24,6 +25,7 @@ export default function Editor() {
   const [focusMode, setFocusMode] = useState(false);
   const [showNote, setShowNote] = useState(false);
   const [loadingContent, setLoadingContent] = useState(false);
+  const isEditing = novelState.workspaceMode === 'edit';
 
   const active = useMemo(() => {
     if (!novelState.activeChapterId) return null;
@@ -34,6 +36,8 @@ export default function Editor() {
     return null;
   }, [novelState.activeChapterId, novelState.volumes]);
   const currentPath = active?.relativePath || null;
+  const note = currentPath ? getChapterNote(currentPath) : '';
+  const readerHtml = active ? renderMarkdown(active.content) : '';
 
   useEffect(() => {
     activeIdRef.current = active?.id || null;
@@ -61,7 +65,7 @@ export default function Editor() {
   }, [active?.id, active?.relativePath, active?.contentLoaded, activeNovel?.root_path, dispatch]);
 
   useEffect(() => {
-    if (!editorRef.current || viewRef.current) return;
+    if (!isEditing || !editorRef.current || viewRef.current) return;
 
     const startState = EditorState.create({
       doc: active?.content || '',
@@ -90,10 +94,10 @@ export default function Editor() {
       view.destroy();
       viewRef.current = null;
     };
-  }, []);
+  }, [isEditing, dispatch]);
 
   useEffect(() => {
-    if (!viewRef.current) return;
+    if (!isEditing || !viewRef.current) return;
     const current = viewRef.current.state.doc.toString();
     if (active && current !== active.content) {
       viewRef.current.dispatch({
@@ -105,7 +109,7 @@ export default function Editor() {
         changes: { from: 0, to: current.length, insert: '' },
       });
     }
-  }, [active?.id, active?.content, active?.contentLoaded]);
+  }, [isEditing, active?.id, active?.content, active?.contentLoaded]);
 
   useEffect(() => {
     return () => {
@@ -129,17 +133,46 @@ export default function Editor() {
     setCurrentTitle(active?.title || '');
   }, [active?.title]);
 
-  const handleFocusToggle = () => setFocusMode(!focusMode);
-  const note = currentPath ? getChapterNote(currentPath) : '';
+  const saveCurrent = () => {
+    if (!activeNovel || !currentPath || !active?.contentLoaded) return;
+    saveToFile(activeNovel.root_path, currentPath, active.content);
+    dispatch({ type: 'ADD_TOAST', payload: { message: '已保存当前章节', type: 'success' } });
+  };
 
-  // 无小说选中 → 欢迎页
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'e') {
+        event.preventDefault();
+        if (!active) return;
+        dispatch({ type: 'SET_WORKSPACE_MODE', payload: isEditing ? 'read' : 'edit' });
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        saveCurrent();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [active?.id, active?.content, active?.contentLoaded, activeNovel?.root_path, currentPath, dispatch, isEditing]);
+
+  const enterEdit = () => {
+    if (active) dispatch({ type: 'SET_WORKSPACE_MODE', payload: 'edit' });
+  };
+
+  const exitEdit = () => {
+    if (activeNovel && currentPath && active?.contentLoaded) {
+      saveToFile(activeNovel.root_path, currentPath, active.content);
+    }
+    dispatch({ type: 'SET_WORKSPACE_MODE', payload: 'read' });
+  };
+
   if (!activeNovel) {
     return (
       <div className={`editor-area${focusMode ? ' focus-mode' : ''}`}>
         <div className="editor-welcome">
           <div className="welcome-icon">📚</div>
           <h2>墨宝 · 小说编辑器</h2>
-          <p>在左侧「项目」中新建或导入一部小说开始写作</p>
+          <p>在左侧“项目”中新建或导入一部小说开始写作</p>
           <div className="welcome-steps">
             <span>1. 创建或选择一个集合</span>
             <span>2. 新建 / 导入小说</span>
@@ -153,33 +186,57 @@ export default function Editor() {
   return (
     <div className={`editor-area ${focusMode ? 'focus-mode' : ''}`}>
       <div className="editor-header">
-        <input
-          value={currentTitle}
-          onChange={e => {
-            setCurrentTitle(e.target.value);
-            if (active) {
-              dispatch({ type: 'UPDATE_CHAPTER_TITLE', payload: { id: active.id, title: e.target.value } });
-            }
-          }}
-          placeholder="章节标题"
-          disabled={!active}
-          className="editor-title-input"
-        />
+        {isEditing ? (
+          <input
+            value={currentTitle}
+            onChange={e => {
+              setCurrentTitle(e.target.value);
+              if (active) {
+                dispatch({ type: 'UPDATE_CHAPTER_TITLE', payload: { id: active.id, title: e.target.value } });
+              }
+            }}
+            placeholder="章节标题"
+            disabled={!active}
+            className="editor-title-input"
+          />
+        ) : (
+          <div className="editor-title-readonly">
+            <span>{active?.title || '选择章节开始阅读'}</span>
+            {active && <em>预览中</em>}
+          </div>
+        )}
         <div className="editor-header-actions">
-          <button onClick={handleFocusToggle} title="专注模式" className="toolbar-btn">
-            {focusMode ? '⊞' : '⊟'}
+          {active && (
+            isEditing ? (
+              <>
+                <button onClick={saveCurrent} title="保存当前章节 (Ctrl+S)" className="toolbar-btn">保存</button>
+                <button onClick={exitEdit} title="退出编辑 (Ctrl+E)" className="toolbar-btn">预览</button>
+              </>
+            ) : (
+              <button onClick={enterEdit} title="进入编辑 (Ctrl+E)" className="toolbar-btn">编辑</button>
+            )
+          )}
+          <button onClick={() => setFocusMode(!focusMode)} title="专注模式" className="toolbar-btn">
+            {focusMode ? '退出' : '专注'}
           </button>
           <button onClick={() => setShowNote(!showNote)} title="章节备注" className="toolbar-btn">
-            📝 {note ? '●' : '○'}
+            备注 {note ? '●' : '○'}
           </button>
         </div>
       </div>
 
-      <EditorToolbar />
+      {isEditing && <EditorToolbar />}
 
       <div className="editor-content">
         {loadingContent && <div className="editor-loading">正在读取章节...</div>}
-        <div ref={editorRef} className="codemirror-container" />
+        {isEditing ? (
+          <div ref={editorRef} className="codemirror-container" />
+        ) : (
+          <div
+            className={`workspace-reader ${novelState.previewMode === 'reader' ? 'reader-mode' : ''}`}
+            dangerouslySetInnerHTML={{ __html: readerHtml || '<div class="empty-state">选择章节开始阅读</div>' }}
+          />
+        )}
       </div>
 
       {showNote && active && currentPath && (

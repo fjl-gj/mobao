@@ -18,6 +18,8 @@ type NovelAction =
   | { type: 'MOVE_CHAPTER'; payload: { chId: string; direction: 'up' | 'down' } }
   | { type: 'MOVE_VOLUME'; payload: { volId: string; direction: 'up' | 'down' } }
   | { type: 'SET_PREVIEW_MODE'; payload: 'preview' | 'reader' }
+  | { type: 'SET_WORKSPACE_MODE'; payload: 'read' | 'edit' }
+  | { type: 'SET_CONTEXT_TAB'; payload: 'preview' | 'annotations' | 'history' | 'notes' }
   | { type: 'ADD_OUTLINE_ITEM'; payload: { text: string; level: number } }
   | { type: 'DELETE_OUTLINE_ITEM'; payload: string }
   | { type: 'LINK_OUTLINE'; payload: { outlineId: string; chapterId: string } }
@@ -31,6 +33,8 @@ export interface NovelState {
   outline: OutlineItem[];
   activeChapterId: string | null;
   previewMode: 'preview' | 'reader';
+  workspaceMode: 'read' | 'edit';
+  contextTab: 'preview' | 'annotations' | 'history' | 'notes';
   toasts: ToastItem[];
   modal: ModalData | null;
 }
@@ -157,6 +161,8 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
       const idx = state.volumes.findIndex(v => v.id === action.payload.volId); if (idx === -1) return state; const newIdx = action.payload.direction === 'up' ? idx - 1 : idx + 1; if (newIdx < 0 || newIdx >= state.volumes.length) return state; const volumes = [...state.volumes]; [volumes[idx], volumes[newIdx]] = [volumes[newIdx], volumes[idx]]; return { ...state, volumes };
     }
     case 'SET_PREVIEW_MODE': return { ...state, previewMode: action.payload };
+    case 'SET_WORKSPACE_MODE': return { ...state, workspaceMode: action.payload };
+    case 'SET_CONTEXT_TAB': return { ...state, contextTab: action.payload };
     case 'ADD_OUTLINE_ITEM': return { ...state, outline: [...state.outline, { id: generateId(), text: action.payload.text, level: action.payload.level, parentId: null, linkedChapterId: null }] };
     case 'DELETE_OUTLINE_ITEM': return { ...state, outline: state.outline.filter(o => o.id !== action.payload) };
     case 'LINK_OUTLINE': return { ...state, outline: state.outline.map(o => o.id === action.payload.outlineId ? { ...o, linkedChapterId: action.payload.chapterId } : o) };
@@ -183,7 +189,7 @@ export function NovelProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(novelReducer, undefined, loadState);
   const saving = useRef(false);
 
-  useEffect(() => { persistState(state); }, [state.volumes, state.outline, state.activeChapterId, state.previewMode]);
+  useEffect(() => { persistState(state); }, [state.volumes, state.outline, state.activeChapterId, state.previewMode, state.workspaceMode, state.contextTab]);
 
   const importMD = useCallback(async (file: File) => {
     try {

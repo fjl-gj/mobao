@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
 import { useProject } from '../hooks/useProject';
 import { useNovel } from '../hooks/useNovel';
 import { useWritingTools } from '../hooks/useWritingTools';
@@ -81,8 +82,9 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
     });
   };
 
-  const handleSelect = (path: string, name: string, volumeTitle?: string) => {
+  const selectChapter = (path: string, name: string, volumeTitle: string | undefined, mode: 'read' | 'edit') => {
     if (path === activePath) {
+      dispatch({ type: 'SET_WORKSPACE_MODE', payload: mode });
       onSelect?.();
       return;
     }
@@ -95,7 +97,17 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
         contentLoaded: false,
       },
     });
+    dispatch({ type: 'SET_WORKSPACE_MODE', payload: mode });
     onSelect?.();
+  };
+
+  const handleSelect = (path: string, name: string, volumeTitle?: string) => {
+    selectChapter(path, name, volumeTitle, 'read');
+  };
+
+  const handleEdit = (event: React.MouseEvent, path: string, name: string, volumeTitle?: string) => {
+    event.preventDefault();
+    selectChapter(path, name, volumeTitle, 'edit');
   };
 
   return (
@@ -126,6 +138,7 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
           ref={setNodeRef(visiblePrologue.relative_path)}
           className={`tree-node prologue ${activePath === visiblePrologue.relative_path ? 'active' : ''}`}
           onClick={() => handleSelect(visiblePrologue.relative_path, visiblePrologue.name, '序章')}
+          onDoubleClick={event => handleEdit(event, visiblePrologue.relative_path, visiblePrologue.name, '序章')}
         >
           <span className="tree-icon">📄</span>
           <span className="tree-title">{visiblePrologue.name}</span>
@@ -147,6 +160,7 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
               ref={setNodeRef(ch.relative_path)}
               className={`tree-node chapter ${activePath === ch.relative_path ? 'active' : ''}`}
               onClick={() => handleSelect(ch.relative_path, ch.name, vol.name)}
+              onDoubleClick={event => handleEdit(event, ch.relative_path, ch.name, vol.name)}
             >
               <span className="tree-icon">📝</span>
               <span className="tree-title">{getTitle(ch.name)}</span>
@@ -162,6 +176,7 @@ export default function Tree({ onSelect }: { onSelect?: () => void }) {
           ref={setNodeRef(ch.relative_path)}
           className={`tree-node chapter ${activePath === ch.relative_path ? 'active' : ''}`}
           onClick={() => handleSelect(ch.relative_path, ch.name, '文稿')}
+          onDoubleClick={event => handleEdit(event, ch.relative_path, ch.name, '文稿')}
         >
           <span className="tree-icon">📝</span>
           <span className="tree-title">{getTitle(ch.name)}</span>
