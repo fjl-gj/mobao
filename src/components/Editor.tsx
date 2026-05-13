@@ -8,6 +8,7 @@ import { useNovel } from '../hooks/useNovel';
 import { useProject } from '../hooks/useProject';
 import { useSettings } from '../hooks/useSettings';
 import { useWritingTools } from '../hooks/useWritingTools';
+import { readTextFile } from '../utils/fileOps';
 import EditorToolbar from './EditorToolbar';
 
 export default function Editor() {
@@ -22,6 +23,7 @@ export default function Editor() {
   const [currentTitle, setCurrentTitle] = useState('');
   const [focusMode, setFocusMode] = useState(false);
   const [showNote, setShowNote] = useState(false);
+  const [loadingContent, setLoadingContent] = useState(false);
 
   const active = useMemo(() => {
     if (!novelState.activeChapterId) return null;
@@ -36,6 +38,27 @@ export default function Editor() {
   useEffect(() => {
     activeIdRef.current = active?.id || null;
   }, [active?.id, active?.content]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activeNovel || !active || !active.relativePath || active.contentLoaded) return;
+    setLoadingContent(true);
+    readTextFile(`${activeNovel.root_path}/${active.relativePath}`)
+      .then(content => {
+        if (cancelled) return;
+        dispatch({ type: 'UPDATE_CHAPTER_CONTENT', payload: { id: active.id, content } });
+      })
+      .catch(() => {
+        if (cancelled) return;
+        dispatch({ type: 'ADD_TOAST', payload: { message: `读取失败: ${active.relativePath}`, type: 'error' } });
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingContent(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [active?.id, active?.relativePath, active?.contentLoaded, activeNovel?.root_path, dispatch]);
 
   useEffect(() => {
     if (!editorRef.current || viewRef.current) return;
@@ -82,10 +105,18 @@ export default function Editor() {
         changes: { from: 0, to: current.length, insert: '' },
       });
     }
+  }, [active?.id, active?.content, active?.contentLoaded]);
+
+  useEffect(() => {
+    return () => {
+      if (activeNovel && currentPath && active?.contentLoaded) {
+        saveToFile(activeNovel.root_path, currentPath, active.content);
+      }
+    };
   }, [active?.id]);
 
   useEffect(() => {
-    if (!activeNovel || !currentPath || !settings.autoSave) return;
+    if (!activeNovel || !currentPath || !settings.autoSave || !active?.contentLoaded) return;
     const content = active?.content || '';
     const intervalMs = Math.max(1, settings.autoSaveInterval) * 1000;
     const timer = setTimeout(() => {
@@ -147,6 +178,7 @@ export default function Editor() {
       <EditorToolbar />
 
       <div className="editor-content">
+        {loadingContent && <div className="editor-loading">正在读取章节...</div>}
         <div ref={editorRef} className="codemirror-container" />
       </div>
 

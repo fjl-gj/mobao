@@ -39,7 +39,16 @@ export function loadState(): NovelState {
 export function persistState(state: NovelState): void {
   try {
     const { toasts, modal, ...core } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(core));
+    const slim = {
+      ...core,
+      volumes: core.volumes.map(volume => ({
+        ...volume,
+        chapters: volume.chapters.map(chapter => chapter.relativePath
+          ? { ...chapter, content: '', contentLoaded: false }
+          : chapter),
+      })),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
   } catch (e) {
     console.error("保存数据失败", e);
   }

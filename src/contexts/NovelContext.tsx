@@ -10,7 +10,7 @@ type NovelAction =
   | { type: 'DELETE_VOLUME'; payload: string }
   | { type: 'RENAME_VOLUME'; payload: { id: string; title: string } }
   | { type: 'ADD_CHAPTER'; payload: { volId: string; title: string; content?: string; relativePath?: string } }
-  | { type: 'UPSERT_CHAPTER'; payload: { title: string; content: string; relativePath: string; volumeTitle?: string } }
+  | { type: 'UPSERT_CHAPTER'; payload: { title: string; content?: string; relativePath: string; volumeTitle?: string; contentLoaded?: boolean } }
   | { type: 'DELETE_CHAPTER'; payload: string }
   | { type: 'SELECT_CHAPTER'; payload: string }
   | { type: 'UPDATE_CHAPTER_TITLE'; payload: { id: string; title: string } }
@@ -40,6 +40,7 @@ export interface Chapter {
   title: string;
   content: string;
   relativePath?: string;
+  contentLoaded?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -88,6 +89,7 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
         title: action.payload.title,
         content: action.payload.content || '',
         relativePath: action.payload.relativePath,
+        contentLoaded: action.payload.content !== undefined || !action.payload.relativePath,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -104,12 +106,13 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
             return {
               ...c,
               title: action.payload.title,
-              content: action.payload.content,
+              content: action.payload.content ?? c.content,
               relativePath: action.payload.relativePath,
+              contentLoaded: action.payload.contentLoaded ?? (action.payload.content !== undefined ? true : c.contentLoaded),
               updatedAt: now,
             };
           }
-          return c;
+          return c.contentLoaded ? { ...c, content: '', contentLoaded: false } : c;
         }),
       }));
 
@@ -121,8 +124,9 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
       const chapter: Chapter = {
         id: generateId(),
         title: action.payload.title,
-        content: action.payload.content,
+        content: action.payload.content ?? '',
         relativePath: action.payload.relativePath,
+        contentLoaded: action.payload.contentLoaded ?? (action.payload.content !== undefined),
         createdAt: now,
         updatedAt: now,
       };
@@ -146,7 +150,7 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
     case 'UPDATE_CHAPTER_TITLE':
       return { ...state, volumes: state.volumes.map(v => ({ ...v, chapters: v.chapters.map(c => c.id === action.payload.id ? { ...c, title: action.payload.title, updatedAt: new Date().toISOString() } : c) })) };
     case 'UPDATE_CHAPTER_CONTENT':
-      return { ...state, volumes: state.volumes.map(v => ({ ...v, chapters: v.chapters.map(c => c.id === action.payload.id ? { ...c, content: action.payload.content, updatedAt: new Date().toISOString() } : c) })) };
+      return { ...state, volumes: state.volumes.map(v => ({ ...v, chapters: v.chapters.map(c => c.id === action.payload.id ? { ...c, content: action.payload.content, contentLoaded: true, updatedAt: new Date().toISOString() } : c) })) };
     case 'MOVE_CHAPTER':
       return { ...state, volumes: state.volumes.map(v => { const idx = v.chapters.findIndex(c => c.id === action.payload.chId); if (idx === -1) return v; const newIdx = action.payload.direction === 'up' ? idx - 1 : idx + 1; if (newIdx < 0 || newIdx >= v.chapters.length) return v; const chapters = [...v.chapters]; [chapters[idx], chapters[newIdx]] = [chapters[newIdx], chapters[idx]]; return { ...v, chapters }; }) };
     case 'MOVE_VOLUME': {
