@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { useResponsiveCtx } from '../contexts/ResponsiveContext';
-import { useNovel } from '../hooks/useNovel';
-import { useProject } from '../hooks/useProject';
+import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
+import { useNovel } from '../../hooks/useNovel';
+import { useProject } from '../../hooks/useProject';
 
 export default function MobileNav() {
   const { openSidebar, togglePreview, previewOpen } = useResponsiveCtx();

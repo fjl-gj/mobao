@@ -4,6 +4,6 @@
 export { NovelProvider, NovelContext } from '../../contexts/NovelContext';
 export type { Chapter, Volume, NovelState, OutlineItem, ToastItem, ModalData } from '../../contexts/NovelContext';
 
-export { default as Editor } from '../../components/Editor';
-export { default as EditorToolbar } from '../../components/EditorToolbar';
-export { default as Tree } from '../../components/Tree';
+export { default as Editor } from '../../components/editor/Editor';
+export { default as EditorToolbar } from '../../components/editor/EditorToolbar';
+export { default as Tree } from '../../components/editor/Tree';

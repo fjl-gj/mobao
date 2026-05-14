@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNovel } from "../hooks/useNovel";
+import { useNovel } from "../../hooks/useNovel";
 
 export default function Outline() {
   const { state, dispatch } = useNovel();

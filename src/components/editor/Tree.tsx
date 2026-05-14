@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
-import { useProject } from '../hooks/useProject';
-import { useNovel } from '../hooks/useNovel';
-import { useWritingTools } from '../hooks/useWritingTools';
+import { useProject } from '../../hooks/useProject';
+import { useNovel } from '../../hooks/useNovel';
+import { useWritingTools } from '../../hooks/useWritingTools';
 
 export default function Tree({ onSelect }: { onSelect?: () => void }) {
   const [query, setQuery] = useState('');

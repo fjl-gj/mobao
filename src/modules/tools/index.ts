@@ -4,8 +4,8 @@
 export { WritingToolsProvider, WritingToolsContext } from '../../contexts/WritingToolsContext';
 export type { Character, WorldEntry, TimelineEvent, PlotThread, ChapterNote } from '../../contexts/WritingToolsContext';
 
-export { default as CharactersPanel } from '../../components/CharactersPanel';
-export { default as WorldPanel } from '../../components/WorldPanel';
-export { default as TimelinePanel } from '../../components/TimelinePanel';
-export { default as PlotPanel } from '../../components/PlotPanel';
-export { default as Outline } from '../../components/Outline';
+export { default as CharactersPanel } from '../../components/tools/CharactersPanel';
+export { default as WorldPanel } from '../../components/tools/WorldPanel';
+export { default as TimelinePanel } from '../../components/tools/TimelinePanel';
+export { default as PlotPanel } from '../../components/tools/PlotPanel';
+export { default as Outline } from '../../components/tools/Outline';

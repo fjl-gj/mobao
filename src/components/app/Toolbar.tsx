@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { useNovel } from '../hooks/useNovel';
-import { useProject } from '../hooks/useProject';
-import { useResponsiveCtx } from '../contexts/ResponsiveContext';
-import { platformCapabilities } from '../core/platform-capabilities';
-import ThemeToggle from './ThemeToggle';
+import { useNovel } from '../../hooks/useNovel';
+import { useProject } from '../../hooks/useProject';
+import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
+import { platformCapabilities } from '../../core/platform-capabilities';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function Toolbar({ onSearch }: { onSearch: () => void }) {
   const mdInput = useRef<HTMLInputElement>(null);

@@ -1,5 +1,5 @@
-import { useSettings } from '../hooks/useSettings';
-import type { AppSettings } from '../contexts/SettingsContext';
+import { useSettings } from '../../hooks/useSettings';
+import type { AppSettings } from '../../contexts/SettingsContext';
 
 const TOOLBAR_BUTTONS: { key: keyof AppSettings; label: string }[] = [
   { key: 'editorFontSize', label: '字号' },

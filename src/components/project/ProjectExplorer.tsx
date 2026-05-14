@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useProject } from '../hooks/useProject';
-import ContextMenu from './ContextMenu';
-import ConfirmDialog from './ConfirmDialog';
+import { useProject } from '../../hooks/useProject';
+import ContextMenu from '../common/ContextMenu';
+import ConfirmDialog from '../common/ConfirmDialog';
 import NovelDialog from './NovelDialog';
 
 type CtxTarget = { type: 'series'; id: string; name: string } | { type: 'novel'; id: string; title: string; seriesId: string } | null;

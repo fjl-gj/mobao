@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { useNovel } from '../hooks/useNovel';
-import { useProject } from '../hooks/useProject';
-import { useWritingTools } from '../hooks/useWritingTools';
-import { renderMarkdown } from '../utils/io';
+import { useNovel } from '../../hooks/useNovel';
+import { useProject } from '../../hooks/useProject';
+import { useWritingTools } from '../../hooks/useWritingTools';
+import { renderMarkdown } from '../../utils/io';
 
 interface Props {
   onEnterFullscreen?: () => void;

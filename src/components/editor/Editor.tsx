@@ -4,12 +4,12 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { EditorState } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { indentWithTab } from '@codemirror/commands';
-import { useNovel } from '../hooks/useNovel';
-import { useProject } from '../hooks/useProject';
-import { useSettings } from '../hooks/useSettings';
-import { useWritingTools } from '../hooks/useWritingTools';
-import { readTextFile } from '../utils/fileOps';
-import { renderMarkdown } from '../utils/io';
+import { useNovel } from '../../hooks/useNovel';
+import { useProject } from '../../hooks/useProject';
+import { useSettings } from '../../hooks/useSettings';
+import { useWritingTools } from '../../hooks/useWritingTools';
+import { readTextFile } from '../../utils/fileOps';
+import { renderMarkdown } from '../../utils/io';
 import EditorToolbar from './EditorToolbar';
 
 export default function Editor() {

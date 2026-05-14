@@ -1,6 +1,6 @@
-import { useNovel } from '../hooks/useNovel';
-import { renderMarkdown } from '../utils/io';
-import { useResponsiveCtx } from '../contexts/ResponsiveContext';
+import { useNovel } from '../../hooks/useNovel';
+import { renderMarkdown } from '../../utils/io';
+import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
 
 interface Props {
   onEnterFullscreen?: () => void;

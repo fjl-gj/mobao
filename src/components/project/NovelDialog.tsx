@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react';
-import { useProject } from '../hooks/useProject';
-import { createDialog } from '../core/dialog';
-import type { DirectoryPickResult } from '../core/dialog';
-import { registerBrowserDirectory, scanNovelDirectory, type NovelStructure } from '../utils/fileOps';
+import { useProject } from '../../hooks/useProject';
+import { createDialog } from '../../core/dialog';
+import type { DirectoryPickResult } from '../../core/dialog';
+import { registerBrowserDirectory, scanNovelDirectory, type NovelStructure } from '../../utils/fileOps';
 
 type Tab = 'choice' | 'import' | 'create';
 type ImportStep = 'idle' | 'picked' | 'scanning' | 'result';

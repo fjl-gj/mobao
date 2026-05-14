@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { renderMarkdown } from '../utils/io';
-import type { Chapter, Volume } from '../contexts/NovelContext';
-import { useResponsiveCtx } from '../contexts/ResponsiveContext';
+import { renderMarkdown } from '../../utils/io';
+import type { Chapter, Volume } from '../../contexts/NovelContext';
+import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
 
 interface Props {
   chapters: { volume: Volume; chapter: Chapter }[];

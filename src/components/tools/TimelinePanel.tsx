@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useWritingTools } from '../hooks/useWritingTools';
-import { useProject } from '../hooks/useProject';
+import { useWritingTools } from '../../hooks/useWritingTools';
+import { useProject } from '../../hooks/useProject';
 
 export default function TimelinePanel() {
   const { state: { activeNovelId } } = useProject();

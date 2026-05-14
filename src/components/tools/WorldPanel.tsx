@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useWritingTools } from '../hooks/useWritingTools';
-import { useProject } from '../hooks/useProject';
+import { useWritingTools } from '../../hooks/useWritingTools';
+import { useProject } from '../../hooks/useProject';
 
 const CATEGORIES = ['地理', '种族', '魔法', '科技', '组织', '历史', '文化', '其他'];
 

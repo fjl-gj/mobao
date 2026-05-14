@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useProject } from '../hooks/useProject';
-import { useNovel } from '../hooks/useNovel';
-import { useResponsiveCtx } from '../contexts/ResponsiveContext';
-import { readTextFile } from '../utils/fileOps';
+import { useProject } from '../../hooks/useProject';
+import { useNovel } from '../../hooks/useNovel';
+import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
+import { readTextFile } from '../../utils/fileOps';
 
 interface SearchResult {
   chapterPath: string;

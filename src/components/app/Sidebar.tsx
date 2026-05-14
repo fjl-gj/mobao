@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import Tree from './Tree';
-import Outline from './Outline';
-import ProjectExplorer from './ProjectExplorer';
-import CharactersPanel from './CharactersPanel';
-import WorldPanel from './WorldPanel';
-import TimelinePanel from './TimelinePanel';
-import PlotPanel from './PlotPanel';
-import { useResponsiveCtx } from '../contexts/ResponsiveContext';
+import Tree from '../editor/Tree';
+import Outline from '../tools/Outline';
+import ProjectExplorer from '../project/ProjectExplorer';
+import CharactersPanel from '../tools/CharactersPanel';
+import WorldPanel from '../tools/WorldPanel';
+import TimelinePanel from '../tools/TimelinePanel';
+import PlotPanel from '../tools/PlotPanel';
+import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
 
 type SidebarTab = 'project' | 'toc' | 'outline' | 'characters' | 'world' | 'timeline' | 'plot';
 

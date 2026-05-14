@@ -36,17 +36,8 @@
     ]
   },
   "plugins": {
-    "dialog": {},
-    "fs": {
-      "scope": {
-        "allow": ["**"],
-        "deny": []
-      }
-    },
     "sql": {
-      "preload": {
-        "db": "sqlite:mobao.db"
-      }
+      "preload": ["sqlite:mobao.db"]
     }
   }
 }

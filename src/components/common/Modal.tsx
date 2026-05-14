@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useNovel } from '../hooks/useNovel';
-import { useProject } from '../hooks/useProject';
-import { useResponsiveCtx } from '../contexts/ResponsiveContext';
-import { createChapter, createVolume } from '../utils/fileOps';
+import { useNovel } from '../../hooks/useNovel';
+import { useProject } from '../../hooks/useProject';
+import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
+import { createChapter, createVolume } from '../../utils/fileOps';
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '').trim();

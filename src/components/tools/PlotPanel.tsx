@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useWritingTools } from '../hooks/useWritingTools';
-import { useProject } from '../hooks/useProject';
+import { useWritingTools } from '../../hooks/useWritingTools';
+import { useProject } from '../../hooks/useProject';
 
 const THREAD_TYPES = [
   { value: 'main', label: '主线' },
