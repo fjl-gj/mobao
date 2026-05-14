@@ -24,30 +24,38 @@ export default function MobileNav() {
     <div className="mobile-nav">
       <div className="mobile-nav-items">
         <button className="mobile-nav-item" onClick={openSidebar}>
-          <span className="mnav-icon">📚</span>
+          <span className="mnav-icon">目</span>
           <span className="mnav-label">项目</span>
         </button>
 
         <button className="mobile-nav-item" onClick={() => setWriteMenuOpen(open => !open)}>
-          <span className="mnav-icon">📝</span>
-          <span className="mnav-label">写</span>
+          <span className="mnav-icon">写</span>
+          <span className="mnav-label">写作</span>
         </button>
 
         <button className="mobile-nav-item" onClick={togglePreview}>
-          <span className="mnav-icon">{previewOpen ? '✏️' : '👁'}</span>
+          <span className="mnav-icon">{previewOpen ? '编' : '预'}</span>
           <span className="mnav-label">{previewOpen ? '编辑' : '预览'}</span>
         </button>
+
+        <button className="mobile-nav-item" onClick={() => dispatch({ type: 'SHOW_MODAL', payload: { type: 'settings' } } as any)}>
+          <span className="mnav-icon">我</span>
+          <span className="mnav-label">我的</span>
+        </button>
       </div>
+
       {wc > 0 && <span className="mobile-nav-wc">{wc}</span>}
+
       {writeMenuOpen && (
         <div className="mobile-write-menu">
-          <button onClick={() => { dispatch({ type: 'SHOW_MODAL', payload: { type: 'newChapter' } } as any); setWriteMenuOpen(false); }} disabled={!activeNovelId}>📝 新章节</button>
-          <button onClick={() => { dispatch({ type: 'SHOW_MODAL', payload: { type: 'newVolume' } } as any); setWriteMenuOpen(false); }} disabled={!activeNovelId}>📁 新卷</button>
-          <button onClick={() => { mdInput.current?.click(); setWriteMenuOpen(false); }}>📥 导入MD</button>
-          <button onClick={() => { wordInput.current?.click(); setWriteMenuOpen(false); }}>📥 导入Word</button>
-          <button onClick={() => { exportMD(); setWriteMenuOpen(false); }}>📤 导出MD</button>
+          <button onClick={() => { dispatch({ type: 'SHOW_MODAL', payload: { type: 'newChapter' } } as any); setWriteMenuOpen(false); }} disabled={!activeNovelId}>新章节</button>
+          <button onClick={() => { dispatch({ type: 'SHOW_MODAL', payload: { type: 'newVolume' } } as any); setWriteMenuOpen(false); }} disabled={!activeNovelId}>新卷</button>
+          <button onClick={() => { mdInput.current?.click(); setWriteMenuOpen(false); }}>导入 MD</button>
+          <button onClick={() => { wordInput.current?.click(); setWriteMenuOpen(false); }}>导入 Word</button>
+          <button onClick={() => { exportMD(); setWriteMenuOpen(false); }}>导出 MD</button>
         </div>
       )}
+
       <input ref={mdInput} type="file" accept=".md" hidden
         onChange={e => { if (e.target.files?.[0]) importMD(e.target.files[0]); e.target.value = ''; }} />
       <input ref={wordInput} type="file" accept=".docx" hidden

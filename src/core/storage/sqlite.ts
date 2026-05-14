@@ -65,6 +65,34 @@ const SQL_CREATE = [
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
+  `CREATE TABLE IF NOT EXISTS chapter_annotations (
+    id TEXT PRIMARY KEY, novel_id TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    chapter_rel_path TEXT NOT NULL, selected_text TEXT DEFAULT '',
+    anchor_start INTEGER, anchor_end INTEGER,
+    annotation_type TEXT DEFAULT 'note', color TEXT DEFAULT 'yellow',
+    content TEXT DEFAULT '', metadata TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS writing_notes (
+    id TEXT PRIMARY KEY, novel_id TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    scope_type TEXT NOT NULL DEFAULT 'chapter',
+    scope_id TEXT NOT NULL DEFAULT '',
+    selected_text TEXT DEFAULT '',
+    anchor_start INTEGER,
+    anchor_end INTEGER,
+    title TEXT DEFAULT '', content TEXT DEFAULT '', tags TEXT DEFAULT '',
+    metadata TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+  `CREATE TABLE IF NOT EXISTS chapter_history (
+    id TEXT PRIMARY KEY, novel_id TEXT NOT NULL REFERENCES novels(id) ON DELETE CASCADE,
+    chapter_rel_path TEXT NOT NULL, title TEXT DEFAULT '',
+    content_snapshot TEXT NOT NULL, change_reason TEXT DEFAULT 'manual_save',
+    word_count INTEGER DEFAULT 0, metadata TEXT DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
   `CREATE TABLE IF NOT EXISTS user_settings (
     key TEXT PRIMARY KEY, value TEXT NOT NULL
   )`,
@@ -83,6 +111,7 @@ export class SqliteProvider implements IStorageProvider {
       await this.db.execute(sql);
     }
     await this.ensureNovelColumns();
+    await this.ensureWritingNoteColumns();
     // 索引
     const indexes = [
       'CREATE INDEX IF NOT EXISTS idx_novels_series ON novels(series_id)',
@@ -91,6 +120,9 @@ export class SqliteProvider implements IStorageProvider {
       'CREATE INDEX IF NOT EXISTS idx_timeline_novel ON timeline_events(novel_id)',
       'CREATE INDEX IF NOT EXISTS idx_plot_novel ON plot_threads(novel_id)',
       'CREATE INDEX IF NOT EXISTS idx_notes_novel ON chapter_notes(novel_id)',
+      'CREATE INDEX IF NOT EXISTS idx_annotations_chapter ON chapter_annotations(novel_id, chapter_rel_path)',
+      'CREATE INDEX IF NOT EXISTS idx_writing_notes_scope ON writing_notes(novel_id, scope_type, scope_id)',
+      'CREATE INDEX IF NOT EXISTS idx_history_chapter ON chapter_history(novel_id, chapter_rel_path, created_at)',
     ];
     for (const i of indexes) {
       await this.db.execute(i);
@@ -112,11 +144,31 @@ export class SqliteProvider implements IStorageProvider {
     }
   }
 
+  private async ensureWritingNoteColumns(): Promise<void> {
+    const rows = await this.db.select('PRAGMA table_info(writing_notes)');
+    const columns = new Set(rows.map((row: any) => row.name));
+    const migrations = [
+      ['selected_text', 'ALTER TABLE writing_notes ADD COLUMN selected_text TEXT DEFAULT ""'],
+      ['anchor_start', 'ALTER TABLE writing_notes ADD COLUMN anchor_start INTEGER'],
+      ['anchor_end', 'ALTER TABLE writing_notes ADD COLUMN anchor_end INTEGER'],
+    ];
+    for (const [name, sql] of migrations) {
+      if (!columns.has(name)) await this.db.execute(sql);
+    }
+  }
+
   async getAll<T>(table: string, where?: string, params?: any[]): Promise<T[]> {
     try {
+      const sortable = new Set(['series', 'novels', 'characters', 'world_entries', 'timeline_events']);
+      const timeSorted = new Set(['chapter_annotations', 'writing_notes', 'chapter_history', 'chapter_notes']);
+      const orderBy = sortable.has(table)
+        ? 'sort_order'
+        : timeSorted.has(table)
+          ? 'created_at DESC'
+          : 'id';
       const sql = where
-        ? `SELECT * FROM ${table} WHERE ${where} ORDER BY sort_order`
-        : `SELECT * FROM ${table} ORDER BY sort_order`;
+        ? `SELECT * FROM ${table} WHERE ${where} ORDER BY ${orderBy}`
+        : `SELECT * FROM ${table} ORDER BY ${orderBy}`;
       return await this.db.select(sql, params);
     } catch (e) { console.error(`[SQLite] getAll ${table}`, e); return []; }
   }

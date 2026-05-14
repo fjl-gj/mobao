@@ -86,6 +86,49 @@ export interface ChapterNote {
   updated_at: string;
 }
 
+export interface ChapterAnnotation {
+  id: string;
+  novel_id: string;
+  chapter_rel_path: string;
+  selected_text: string;
+  anchor_start: number | null;
+  anchor_end: number | null;
+  annotation_type: string;
+  color: string;
+  content: string;
+  metadata: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WritingNote {
+  id: string;
+  novel_id: string;
+  scope_type: 'chapter' | 'novel' | 'character' | 'world' | 'plot';
+  scope_id: string;
+  selected_text: string;
+  anchor_start: number | null;
+  anchor_end: number | null;
+  title: string;
+  content: string;
+  tags: string;
+  metadata: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChapterHistory {
+  id: string;
+  novel_id: string;
+  chapter_rel_path: string;
+  title: string;
+  content_snapshot: string;
+  change_reason: string;
+  word_count: number;
+  metadata: string;
+  created_at: string;
+}
+
 // ---------- 状态 ----------
 
 interface WritingToolsState {
@@ -96,6 +139,9 @@ interface WritingToolsState {
   plotThreads: PlotThread[];
   plotLinks: PlotChapterLink[];
   chapterNotes: Record<string, string>;
+  annotations: ChapterAnnotation[];
+  writingNotes: WritingNote[];
+  chapterHistory: ChapterHistory[];
   loading: boolean;
   error: string | null;
 }
@@ -108,6 +154,9 @@ const initialState: WritingToolsState = {
   plotThreads: [],
   plotLinks: [],
   chapterNotes: {},
+  annotations: [],
+  writingNotes: [],
+  chapterHistory: [],
   loading: false,
   error: null,
 };
@@ -141,6 +190,14 @@ type WritingToolsAction =
   | { type: 'REMOVE_PLOT_LINKS'; payload: string }
   | { type: 'SET_CHAPTER_NOTES'; payload: Record<string, string> }
   | { type: 'SET_CHAPTER_NOTE'; payload: { path: string; note: string } }
+  | { type: 'SET_ANNOTATIONS'; payload: ChapterAnnotation[] }
+  | { type: 'ADD_ANNOTATION'; payload: ChapterAnnotation }
+  | { type: 'REMOVE_ANNOTATION'; payload: string }
+  | { type: 'SET_WRITING_NOTES'; payload: WritingNote[] }
+  | { type: 'ADD_WRITING_NOTE'; payload: WritingNote }
+  | { type: 'REMOVE_WRITING_NOTE'; payload: string }
+  | { type: 'SET_CHAPTER_HISTORY'; payload: ChapterHistory[] }
+  | { type: 'ADD_CHAPTER_HISTORY'; payload: ChapterHistory }
   | { type: 'CLEAR_ALL' };
 
 function toolsReducer(state: WritingToolsState, action: WritingToolsAction): WritingToolsState {
@@ -197,6 +254,14 @@ function toolsReducer(state: WritingToolsState, action: WritingToolsAction): Wri
       ...state,
       chapterNotes: { ...state.chapterNotes, [action.payload.path]: action.payload.note },
     };
+    case 'SET_ANNOTATIONS': return { ...state, annotations: action.payload };
+    case 'ADD_ANNOTATION': return { ...state, annotations: [action.payload, ...state.annotations] };
+    case 'REMOVE_ANNOTATION': return { ...state, annotations: state.annotations.filter(item => item.id !== action.payload) };
+    case 'SET_WRITING_NOTES': return { ...state, writingNotes: action.payload };
+    case 'ADD_WRITING_NOTE': return { ...state, writingNotes: [action.payload, ...state.writingNotes] };
+    case 'REMOVE_WRITING_NOTE': return { ...state, writingNotes: state.writingNotes.filter(item => item.id !== action.payload) };
+    case 'SET_CHAPTER_HISTORY': return { ...state, chapterHistory: action.payload };
+    case 'ADD_CHAPTER_HISTORY': return { ...state, chapterHistory: [action.payload, ...state.chapterHistory].slice(0, 10) };
     case 'CLEAR_ALL': return initialState;
     default: return state;
   }
@@ -227,6 +292,12 @@ interface WritingToolsContextType {
   removePlotLinks: (threadId: string) => Promise<void>;
   setChapterNote: (novelId: string, chapterPath: string, note: string) => Promise<void>;
   getChapterNote: (chapterPath: string) => string;
+  createAnnotation: (novelId: string, chapterPath: string, content: string, selectedText?: string, anchorStart?: number | null, anchorEnd?: number | null) => Promise<void>;
+  deleteAnnotation: (id: string) => Promise<void>;
+  createWritingNote: (novelId: string, chapterPath: string, content: string, title?: string, selectedText?: string, anchorStart?: number | null, anchorEnd?: number | null) => Promise<void>;
+  deleteWritingNote: (id: string) => Promise<void>;
+  recordChapterHistory: (novelId: string, chapterPath: string, title: string, content: string, reason: string) => Promise<void>;
+  loadChapterHistory: (novelId: string, chapterPath: string) => Promise<void>;
 }
 
 export const WritingToolsContext = createContext<WritingToolsContextType>(null!);
@@ -238,13 +309,15 @@ export function WritingToolsProvider({ children }: { children: React.ReactNode }
   const loadAll = useCallback(async (novelId: string) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      const [characters, relations, worldEntries, timelineEvents, plotThreads, plotLinks] = await Promise.all([
+      const [characters, relations, worldEntries, timelineEvents, plotThreads, plotLinks, annotations, writingNotes] = await Promise.all([
         getAll<Character>('characters', 'novel_id = ?', [novelId]),
         getAll<CharacterRelation>('character_relations', 'novel_id = ?', [novelId]),
         getAll<WorldEntry>('world_entries', 'novel_id = ?', [novelId]),
         getAll<TimelineEvent>('timeline_events', 'novel_id = ?', [novelId]),
         getAll<PlotThread>('plot_threads', 'novel_id = ?', [novelId]),
         getAll<PlotChapterLink>('plot_chapter_links'),
+        getAll<ChapterAnnotation>('chapter_annotations', 'novel_id = ?', [novelId]),
+        getAll<WritingNote>('writing_notes', 'novel_id = ?', [novelId]),
       ]);
       const plotThreadIds = new Set(plotThreads.map(thread => thread.id));
       const scopedPlotLinks = plotLinks.filter(link => plotThreadIds.has(link.thread_id));
@@ -255,6 +328,9 @@ export function WritingToolsProvider({ children }: { children: React.ReactNode }
       dispatch({ type: 'SET_TIMELINE_EVENTS', payload: timelineEvents });
       dispatch({ type: 'SET_PLOT_THREADS', payload: plotThreads });
       dispatch({ type: 'SET_PLOT_LINKS', payload: scopedPlotLinks });
+      dispatch({ type: 'SET_ANNOTATIONS', payload: annotations });
+      dispatch({ type: 'SET_WRITING_NOTES', payload: writingNotes });
+      dispatch({ type: 'SET_CHAPTER_HISTORY', payload: [] });
 
       const notes = await getAll<ChapterNote>('chapter_notes', 'novel_id = ?', [novelId]);
       const notesMap: Record<string, string> = {};
@@ -407,6 +483,95 @@ export function WritingToolsProvider({ children }: { children: React.ReactNode }
     return state.chapterNotes[chapterPath] || '';
   }, [state.chapterNotes]);
 
+  const createAnnotation = useCallback(async (novelId: string, chapterPath: string, content: string, selectedText = '', anchorStart: number | null = null, anchorEnd: number | null = null) => {
+    if (!chapterPath || !content.trim()) return;
+    const now = new Date().toISOString();
+    const annotation: ChapterAnnotation = {
+      id: generateId(),
+      novel_id: novelId,
+      chapter_rel_path: chapterPath,
+      selected_text: selectedText,
+      anchor_start: anchorStart,
+      anchor_end: anchorEnd,
+      annotation_type: 'note',
+      color: 'yellow',
+      content: content.trim(),
+      metadata: '',
+      created_at: now,
+      updated_at: now,
+    };
+    await insert('chapter_annotations', annotation);
+    dispatch({ type: 'ADD_ANNOTATION', payload: annotation });
+  }, []);
+
+  const deleteAnnotation = useCallback(async (id: string) => {
+    await remove('chapter_annotations', id);
+    dispatch({ type: 'REMOVE_ANNOTATION', payload: id });
+  }, []);
+
+  const createWritingNote = useCallback(async (novelId: string, chapterPath: string, content: string, title = '', selectedText = '', anchorStart: number | null = null, anchorEnd: number | null = null) => {
+    if (!chapterPath || !content.trim()) return;
+    const now = new Date().toISOString();
+    const note: WritingNote = {
+      id: generateId(),
+      novel_id: novelId,
+      scope_type: 'chapter',
+      scope_id: chapterPath,
+      selected_text: selectedText,
+      anchor_start: anchorStart,
+      anchor_end: anchorEnd,
+      title: title.trim(),
+      content: content.trim(),
+      tags: '',
+      metadata: '',
+      created_at: now,
+      updated_at: now,
+    };
+    await insert('writing_notes', note);
+    dispatch({ type: 'ADD_WRITING_NOTE', payload: note });
+  }, []);
+
+  const deleteWritingNote = useCallback(async (id: string) => {
+    await remove('writing_notes', id);
+    dispatch({ type: 'REMOVE_WRITING_NOTE', payload: id });
+  }, []);
+
+  const loadChapterHistory = useCallback(async (novelId: string, chapterPath: string) => {
+    if (!chapterPath) return;
+    const rows = await getAll<ChapterHistory>('chapter_history', 'novel_id = ?', [novelId]);
+    dispatch({
+      type: 'SET_CHAPTER_HISTORY',
+      payload: rows.filter(item => item.chapter_rel_path === chapterPath).slice(0, 10),
+    });
+  }, []);
+
+  const recordChapterHistory = useCallback(async (novelId: string, chapterPath: string, title: string, content: string, reason: string) => {
+    if (!chapterPath || !content.trim()) return;
+    const rows = await getAll<ChapterHistory>('chapter_history', 'novel_id = ?', [novelId]);
+    const existing = rows.filter(item => item.chapter_rel_path === chapterPath);
+    const latest = existing[0];
+    if (latest?.content_snapshot === content) return;
+    if (reason === 'auto_save' && latest && Math.abs(content.length - latest.content_snapshot.length) < 20) return;
+
+    const history: ChapterHistory = {
+      id: generateId(),
+      novel_id: novelId,
+      chapter_rel_path: chapterPath,
+      title,
+      content_snapshot: content,
+      change_reason: reason,
+      word_count: content.replace(/\s/g, '').length,
+      metadata: '',
+      created_at: new Date().toISOString(),
+    };
+    await insert('chapter_history', history);
+
+    const nextRows = await getAll<ChapterHistory>('chapter_history', 'novel_id = ?', [novelId]);
+    const scoped = nextRows.filter(item => item.chapter_rel_path === chapterPath);
+    await Promise.all(scoped.slice(10).map(item => remove('chapter_history', item.id)));
+    dispatch({ type: 'SET_CHAPTER_HISTORY', payload: [history, ...scoped.filter(item => item.id !== history.id)].slice(0, 10) });
+  }, []);
+
   return (
     <WritingToolsContext.Provider value={{
       state, dispatch, loadAll, clearAll,
@@ -417,6 +582,9 @@ export function WritingToolsProvider({ children }: { children: React.ReactNode }
       createPlotThread, updatePlotThread, deletePlotThread,
       addPlotLink, removePlotLinks,
       setChapterNote, getChapterNote,
+      createAnnotation, deleteAnnotation,
+      createWritingNote, deleteWritingNote,
+      recordChapterHistory, loadChapterHistory,
     }}>
       {children}
     </WritingToolsContext.Provider>

@@ -19,7 +19,8 @@ type NovelAction =
   | { type: 'MOVE_VOLUME'; payload: { volId: string; direction: 'up' | 'down' } }
   | { type: 'SET_PREVIEW_MODE'; payload: 'preview' | 'reader' }
   | { type: 'SET_WORKSPACE_MODE'; payload: 'read' | 'edit' }
-  | { type: 'SET_CONTEXT_TAB'; payload: 'preview' | 'annotations' | 'history' | 'notes' }
+  | { type: 'SET_CONTEXT_TAB'; payload: 'preview' | 'annotations' | 'history' | 'notes' | 'ai' }
+  | { type: 'SET_EDITOR_SELECTION'; payload: EditorSelection | null }
   | { type: 'ADD_OUTLINE_ITEM'; payload: { text: string; level: number } }
   | { type: 'DELETE_OUTLINE_ITEM'; payload: string }
   | { type: 'LINK_OUTLINE'; payload: { outlineId: string; chapterId: string } }
@@ -34,7 +35,8 @@ export interface NovelState {
   activeChapterId: string | null;
   previewMode: 'preview' | 'reader';
   workspaceMode: 'read' | 'edit';
-  contextTab: 'preview' | 'annotations' | 'history' | 'notes';
+  contextTab: 'preview' | 'annotations' | 'history' | 'notes' | 'ai';
+  editorSelection: EditorSelection | null;
   toasts: ToastItem[];
   modal: ModalData | null;
 }
@@ -61,6 +63,14 @@ export interface OutlineItem {
   level: number;
   parentId: string | null;
   linkedChapterId: string | null;
+}
+
+export interface EditorSelection {
+  chapterId: string;
+  chapterPath: string;
+  from: number;
+  to: number;
+  selectedText: string;
 }
 
 export interface ToastItem {
@@ -163,6 +173,7 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
     case 'SET_PREVIEW_MODE': return { ...state, previewMode: action.payload };
     case 'SET_WORKSPACE_MODE': return { ...state, workspaceMode: action.payload };
     case 'SET_CONTEXT_TAB': return { ...state, contextTab: action.payload };
+    case 'SET_EDITOR_SELECTION': return { ...state, editorSelection: action.payload };
     case 'ADD_OUTLINE_ITEM': return { ...state, outline: [...state.outline, { id: generateId(), text: action.payload.text, level: action.payload.level, parentId: null, linkedChapterId: null }] };
     case 'DELETE_OUTLINE_ITEM': return { ...state, outline: state.outline.filter(o => o.id !== action.payload) };
     case 'LINK_OUTLINE': return { ...state, outline: state.outline.map(o => o.id === action.payload.outlineId ? { ...o, linkedChapterId: action.payload.chapterId } : o) };

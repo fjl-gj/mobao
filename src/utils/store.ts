@@ -17,6 +17,7 @@ export function loadState(): NovelState {
         previewMode: data.previewMode || "preview",
         workspaceMode: data.workspaceMode || "read",
         contextTab: data.contextTab || "preview",
+        editorSelection: null,
         toasts: [],
         modal: null,
       };
@@ -32,6 +33,7 @@ export function loadState(): NovelState {
     previewMode: "preview",
     workspaceMode: "read",
     contextTab: "preview",
+    editorSelection: null,
     toasts: [],
     modal: null,
   };
@@ -42,7 +44,7 @@ export function loadState(): NovelState {
  */
 export function persistState(state: NovelState): void {
   try {
-    const { toasts, modal, ...core } = state;
+    const { toasts, modal, editorSelection, ...core } = state;
     const slim = {
       ...core,
       volumes: core.volumes.map(volume => ({

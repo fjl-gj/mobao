@@ -4,6 +4,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect } 
 
 export interface AppSettings {
   theme: 'default' | 'dark' | 'eye-care';
+  editorMode: 'markdown' | 'richtext';
   editorFontSize: number;
   editorFontFamily: string;
   editorLineHeight: number;
@@ -12,6 +13,13 @@ export interface AppSettings {
   autoSaveInterval: number;
   showLineNumbers: boolean;
   enableSpellCheck: boolean;
+  cloudSyncEnabled: boolean;
+  aiEnabled: boolean;
+  aiProvider: 'mobao' | 'openai' | 'custom';
+  aiDefaultModel: string;
+  aiUseCurrentChapter: boolean;
+  aiUseWritingContext: boolean;
+  aiSaveHistory: boolean;
   sidebarWidth: number;
   previewVisible: boolean;
   lastSeriesId: string | null;
@@ -20,6 +28,7 @@ export interface AppSettings {
 
 const defaultSettings: AppSettings = {
   theme: 'default',
+  editorMode: 'markdown',
   editorFontSize: 15,
   editorFontFamily: 'var(--font-mono)',
   editorLineHeight: 1.7,
@@ -28,6 +37,13 @@ const defaultSettings: AppSettings = {
   autoSaveInterval: 60,
   showLineNumbers: false,
   enableSpellCheck: false,
+  cloudSyncEnabled: false,
+  aiEnabled: false,
+  aiProvider: 'mobao',
+  aiDefaultModel: '',
+  aiUseCurrentChapter: true,
+  aiUseWritingContext: true,
+  aiSaveHistory: true,
   sidebarWidth: 240,
   previewVisible: true,
   lastSeriesId: null,
@@ -48,7 +64,7 @@ function loadSettings(): AppSettings {
   try {
     const stored = localStorage.getItem('mobao_settings_v2');
     if (stored) {
-      return { ...defaultSettings, ...JSON.parse(stored) };
+      return { ...defaultSettings, ...JSON.parse(stored), aiEnabled: false };
     }
   } catch { /* ignore */ }
   return defaultSettings;

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { EditorState } from '@codemirror/state';
@@ -17,10 +17,12 @@ export default function Editor() {
   const { state: projectState } = useProject();
   const activeNovel = projectState.activeNovelId ? projectState.novels.find(n => n.id === projectState.activeNovelId) : null;
   const { settings } = useSettings();
-  const { setChapterNote, getChapterNote } = useWritingTools();
+  const { setChapterNote, getChapterNote, recordChapterHistory, loadChapterHistory } = useWritingTools();
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const activeIdRef = useRef<string | null>(null);
+  const activePathRef = useRef<string>('');
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [currentTitle, setCurrentTitle] = useState('');
   const [focusMode, setFocusMode] = useState(false);
   const [showNote, setShowNote] = useState(false);
@@ -38,10 +40,27 @@ export default function Editor() {
   const currentPath = active?.relativePath || null;
   const note = currentPath ? getChapterNote(currentPath) : '';
   const readerHtml = active ? renderMarkdown(active.content) : '';
+  const currentWordCount = active?.content.replace(/\s/g, '').length || 0;
+  const totalWordCount = novelState.volumes.reduce((sum, vol) =>
+    sum + vol.chapters.reduce((chapterSum, chapter) => chapterSum + chapter.content.replace(/\s/g, '').length, 0), 0
+  );
+  const cursorOffset = novelState.editorSelection?.chapterPath === currentPath
+    ? novelState.editorSelection.from
+    : 0;
+  const cursorPrefix = active?.content.slice(0, cursorOffset) || '';
+  const cursorLines = cursorPrefix.split('\n');
+  const cursorLine = cursorLines.length;
+  const cursorColumn = cursorLines[cursorLines.length - 1].length + 1;
+  const editorStyle = {
+    '--editor-font-size': `${settings.editorFontSize}px`,
+    '--editor-line-height': settings.editorLineHeight,
+    '--editor-font-family': settings.editorFontFamily,
+  } as CSSProperties;
 
   useEffect(() => {
     activeIdRef.current = active?.id || null;
-  }, [active?.id, active?.content]);
+    activePathRef.current = active?.relativePath || '';
+  }, [active?.id, active?.relativePath, active?.content]);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,12 +91,51 @@ export default function Editor() {
       extensions: [
         basicSetup,
         markdown({ base: markdownLanguage }),
-        keymap.of([indentWithTab]),
+        keymap.of([
+          indentWithTab,
+          {
+            key: 'Mod-b',
+            run: view => {
+              const { from, to } = view.state.selection.main;
+              const selected = view.state.sliceDoc(from, to) || '加粗文本';
+              view.dispatch({
+                changes: { from, to, insert: `**${selected}**` },
+                selection: { anchor: from + selected.length + 4 },
+              });
+              return true;
+            },
+          },
+          {
+            key: 'Mod-i',
+            run: view => {
+              const { from, to } = view.state.selection.main;
+              const selected = view.state.sliceDoc(from, to) || '斜体文本';
+              view.dispatch({
+                changes: { from, to, insert: `*${selected}*` },
+                selection: { anchor: from + selected.length + 2 },
+              });
+              return true;
+            },
+          },
+        ]),
         EditorView.updateListener.of(update => {
-          if (update.docChanged) {
+          if (update.docChanged || update.selectionSet) {
             const content = update.state.doc.toString();
             if (activeIdRef.current) {
-              dispatch({ type: 'UPDATE_CHAPTER_CONTENT', payload: { id: activeIdRef.current, content } });
+              if (update.docChanged) {
+                dispatch({ type: 'UPDATE_CHAPTER_CONTENT', payload: { id: activeIdRef.current, content } });
+              }
+              const selection = update.state.selection.main;
+              dispatch({
+                type: 'SET_EDITOR_SELECTION',
+                payload: {
+                  chapterId: activeIdRef.current,
+                  chapterPath: activePathRef.current,
+                  from: selection.from,
+                  to: selection.to,
+                  selectedText: update.state.sliceDoc(selection.from, selection.to),
+                },
+              });
             }
           }
         }),
@@ -89,10 +147,12 @@ export default function Editor() {
       parent: editorRef.current,
     });
     viewRef.current = view;
+    setEditorView(view);
 
     return () => {
       view.destroy();
       viewRef.current = null;
+      setEditorView(null);
     };
   }, [isEditing, dispatch]);
 
@@ -114,6 +174,7 @@ export default function Editor() {
   useEffect(() => {
     return () => {
       if (activeNovel && currentPath && active?.contentLoaded) {
+        recordChapterHistory(activeNovel.id, currentPath, active.title, active.content, 'switch_chapter');
         saveToFile(activeNovel.root_path, currentPath, active.content);
       }
     };
@@ -124,18 +185,24 @@ export default function Editor() {
     const content = active?.content || '';
     const intervalMs = Math.max(1, settings.autoSaveInterval) * 1000;
     const timer = setTimeout(() => {
+      recordChapterHistory(activeNovel.id, currentPath, active.title, content, 'auto_save');
       saveToFile(activeNovel.root_path, currentPath, content);
     }, intervalMs);
     return () => clearTimeout(timer);
-  }, [active?.content, currentPath, activeNovel?.root_path, settings.autoSave, settings.autoSaveInterval, saveToFile]);
+  }, [active?.content, active?.title, currentPath, activeNovel?.id, activeNovel?.root_path, settings.autoSave, settings.autoSaveInterval, saveToFile, recordChapterHistory]);
 
   useEffect(() => {
     setCurrentTitle(active?.title || '');
   }, [active?.title]);
 
-  const saveCurrent = () => {
+  useEffect(() => {
+    if (activeNovel && currentPath) loadChapterHistory(activeNovel.id, currentPath);
+  }, [activeNovel?.id, currentPath, loadChapterHistory]);
+
+  const saveCurrent = async () => {
     if (!activeNovel || !currentPath || !active?.contentLoaded) return;
-    saveToFile(activeNovel.root_path, currentPath, active.content);
+    await recordChapterHistory(activeNovel.id, currentPath, active.title, active.content, 'manual_save');
+    await saveToFile(activeNovel.root_path, currentPath, active.content);
     dispatch({ type: 'ADD_TOAST', payload: { message: '已保存当前章节', type: 'success' } });
   };
 
@@ -161,6 +228,7 @@ export default function Editor() {
 
   const exitEdit = () => {
     if (activeNovel && currentPath && active?.contentLoaded) {
+      recordChapterHistory(activeNovel.id, currentPath, active.title, active.content, 'exit_edit');
       saveToFile(activeNovel.root_path, currentPath, active.content);
     }
     dispatch({ type: 'SET_WORKSPACE_MODE', payload: 'read' });
@@ -225,18 +293,26 @@ export default function Editor() {
         </div>
       </div>
 
-      {isEditing && <EditorToolbar />}
+      {isEditing && <EditorToolbar view={editorView} disabled={!active} />}
 
       <div className="editor-content">
         {loadingContent && <div className="editor-loading">正在读取章节...</div>}
         {isEditing ? (
-          <div ref={editorRef} className="codemirror-container" />
+          <div ref={editorRef} className="codemirror-container" style={editorStyle} />
         ) : (
           <div
             className={`workspace-reader ${novelState.previewMode === 'reader' ? 'reader-mode' : ''}`}
             dangerouslySetInnerHTML={{ __html: readerHtml || '<div class="empty-state">选择章节开始阅读</div>' }}
           />
         )}
+      </div>
+
+      <div className="editor-statusbar">
+        <div className="editor-statusbar-info">
+          <span>本章 {currentWordCount} 字</span>
+          <span>总计 {totalWordCount} 字</span>
+          {active && <span>行 {cursorLine}，列 {cursorColumn}</span>}
+        </div>
       </div>
 
       {showNote && active && currentPath && (

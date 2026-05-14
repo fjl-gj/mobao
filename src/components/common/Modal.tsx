@@ -1,11 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNovel } from '../../hooks/useNovel';
 import { useProject } from '../../hooks/useProject';
 import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
 import { createChapter, createVolume } from '../../utils/fileOps';
+import SettingsDialog from './SettingsDialog';
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, '').trim();
+}
+
+function modalTitle(type: string) {
+  if (type === 'newVolume') return '新建卷';
+  if (type === 'newChapter') return '新建章节';
+  return type;
 }
 
 export default function Modal() {
@@ -70,20 +77,30 @@ export default function Modal() {
 
   return (
     <div className={`modal-backdrop ${isMobile ? 'modal-mobile' : ''}`} onClick={close}>
-      <div className="modal-box" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{modal.type === 'newVolume' ? '📁 新建卷' : modal.type === 'newChapter' ? '📝 新建章节' : modal.type}</h3>
-          <button className="modal-close" onClick={close}>✕</button>
-        </div>
-        <div className="modal-body">
-          <input autoFocus value={value} onChange={e => setValue(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && confirm()}
-            placeholder={modal.type === 'newVolume' ? '输入卷标题' : '输入章节标题'} />
-        </div>
-        <div className="modal-footer">
-          <button className="modal-btn cancel" onClick={close} disabled={busy}>取消</button>
-          <button className="modal-btn confirm" onClick={confirm} disabled={busy}>确定</button>
-        </div>
+      <div className={`modal-box ${modal.type === 'settings' ? 'settings-dialog-box' : ''}`} onClick={e => e.stopPropagation()}>
+        {modal.type === 'settings' ? (
+          <SettingsDialog onClose={close} />
+        ) : (
+          <>
+            <div className="modal-header">
+              <h3>{modalTitle(modal.type)}</h3>
+              <button className="modal-close" onClick={close}>×</button>
+            </div>
+            <div className="modal-body">
+              <input
+                autoFocus
+                value={value}
+                onChange={e => setValue(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && confirm()}
+                placeholder={modal.type === 'newVolume' ? '输入卷标题' : '输入章节标题'}
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn cancel" onClick={close} disabled={busy}>取消</button>
+              <button className="modal-btn confirm" onClick={confirm} disabled={busy}>确定</button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

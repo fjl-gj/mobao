@@ -25,6 +25,9 @@ export const STORAGE_TABLES = [
   'plot_threads',
   'plot_chapter_links',
   'chapter_notes',
+  'chapter_annotations',
+  'writing_notes',
+  'chapter_history',
   'user_settings',
 ] as const;
 

@@ -17,20 +17,21 @@ import type { Chapter, Volume } from './contexts/NovelContext';
 import './App.css';
 
 function App() {
-  const { state: novelState, dispatch } = useNovel();
+  const { state: novelState, dispatch, saveToFile } = useNovel();
   const { state: projectState, loadSeries, setActiveSeries, setActiveNovel, loadNovels } = useProject();
-  const { loadAll, clearAll } = useWritingTools();
+  const { loadAll, clearAll, recordChapterHistory, loadChapterHistory } = useWritingTools();
   const { settings, updateSettings } = useSettings();
   const responsive = useResponsiveCtx();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
   const [showSearch, setShowSearch] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.theme);
   }, [settings.theme]);
 
-  useEffect(() => { loadSeries(); }, []);
+  useEffect(() => { loadSeries(); }, [loadSeries]);
 
   useEffect(() => {
     if (projectState.activeNovelId) {
@@ -38,7 +39,7 @@ function App() {
     } else {
       clearAll();
     }
-  }, [projectState.activeNovelId]);
+  }, [projectState.activeNovelId, loadAll, clearAll]);
 
   useEffect(() => {
     if (settings.lastSeriesId && projectState.series.length > 0) {
@@ -48,33 +49,27 @@ function App() {
         loadNovels(settings.lastSeriesId);
       }
     }
-  }, [projectState.series]);
+  }, [settings.lastSeriesId, projectState.series, setActiveSeries, loadNovels]);
 
   useEffect(() => {
     if (settings.lastNovelId && projectState.novels.length > 0) {
       const exists = projectState.novels.find(n => n.id === settings.lastNovelId);
-      if (exists) {
-        setActiveNovel(settings.lastNovelId);
-      }
+      if (exists) setActiveNovel(settings.lastNovelId);
     }
-  }, [projectState.novels]);
+  }, [settings.lastNovelId, projectState.novels, setActiveNovel]);
 
   useEffect(() => {
-    if (projectState.activeSeriesId) {
-      updateSettings({ lastSeriesId: projectState.activeSeriesId });
-    }
+    if (projectState.activeSeriesId) updateSettings({ lastSeriesId: projectState.activeSeriesId });
   }, [projectState.activeSeriesId, updateSettings]);
 
   useEffect(() => {
-    if (projectState.activeNovelId) {
-      updateSettings({ lastNovelId: projectState.activeNovelId });
-    }
+    if (projectState.activeNovelId) updateSettings({ lastNovelId: projectState.activeNovelId });
   }, [projectState.activeNovelId, updateSettings]);
 
   const allChapters = useMemo(() => {
     const list: { volume: Volume; chapter: Chapter }[] = [];
-    novelState.volumes.forEach(vol => {
-      vol.chapters.forEach(ch => list.push({ volume: vol, chapter: ch }));
+    novelState.volumes.forEach(volume => {
+      volume.chapters.forEach(chapter => list.push({ volume, chapter }));
     });
     return list;
   }, [novelState.volumes]);
@@ -90,15 +85,20 @@ function App() {
       if (allChapters.length > 0) {
         dispatch({ type: 'SELECT_CHAPTER', payload: allChapters[0].chapter.id });
         setFullscreenIndex(0);
-      } else { alert('请先创建至少一个章节'); return; }
-    } else { setFullscreenIndex(idx); }
+      } else {
+        alert('请先创建至少一个章节');
+        return;
+      }
+    } else {
+      setFullscreenIndex(idx);
+    }
     setIsFullscreen(true);
   };
 
   const handleExitFullscreen = () => {
     setIsFullscreen(false);
-    const ch = allChapters[fullscreenIndex]?.chapter;
-    if (ch) dispatch({ type: 'SELECT_CHAPTER', payload: ch.id });
+    const chapter = allChapters[fullscreenIndex]?.chapter;
+    if (chapter) dispatch({ type: 'SELECT_CHAPTER', payload: chapter.id });
   };
 
   const handleNavigateChapter = (newIndex: number) => {
@@ -106,6 +106,33 @@ function App() {
       setFullscreenIndex(newIndex);
       dispatch({ type: 'SELECT_CHAPTER', payload: allChapters[newIndex].chapter.id });
     }
+  };
+
+  const handleRestoreHistory = async (content: string) => {
+    const active = allChapters[activeIndex]?.chapter;
+    const activeNovel = projectState.activeNovelId ? projectState.novels.find(n => n.id === projectState.activeNovelId) : null;
+    if (!active || !activeNovel || !active.relativePath) return;
+
+    await recordChapterHistory(activeNovel.id, active.relativePath, active.title, active.content, 'before_restore');
+    dispatch({ type: 'UPDATE_CHAPTER_CONTENT', payload: { id: active.id, content } });
+    await saveToFile(activeNovel.root_path, active.relativePath, content);
+    await loadChapterHistory(activeNovel.id, active.relativePath);
+    dispatch({ type: 'ADD_TOAST', payload: { message: '已恢复历史版本', type: 'success' } });
+  };
+
+  const toggleSidebars = () => {
+    const eitherOpen = responsive.sidebarOpen || rightSidebarOpen;
+    if (eitherOpen) {
+      responsive.closeSidebar();
+      setRightSidebarOpen(false);
+    } else {
+      responsive.openSidebar();
+      setRightSidebarOpen(true);
+    }
+  };
+
+  const toggleLeftSidebar = () => {
+    responsive.toggleSidebar();
   };
 
   useEffect(() => {
@@ -136,35 +163,40 @@ function App() {
   }
 
   const showOverlay = responsive.sidebarOpen && !responsive.isDesktop;
+  const sidebarsOpen = responsive.sidebarOpen || rightSidebarOpen;
 
   return (
     <div className={`app-container bp-${responsive.breakpoint}`}>
-      <Toolbar onSearch={() => setShowSearch(true)} />
+      <Toolbar
+        onSearch={() => setShowSearch(true)}
+        sidebarsOpen={sidebarsOpen}
+        leftSidebarOpen={responsive.sidebarOpen}
+        onToggleSidebars={toggleSidebars}
+        onToggleLeftSidebar={toggleLeftSidebar}
+      />
 
       <div className="main-body">
-        {/* Desktop: sidebar always visible. Tablet/Mobile: slide-out drawer */}
         <div className={`sidebar-wrapper ${responsive.sidebarOpen ? 'open' : 'collapsed'}`}>
           <Sidebar onClose={responsive.isDesktop ? undefined : responsive.closeSidebar} />
         </div>
 
-        {/* Overlay backdrop for mobile/tablet sidebar */}
         {showOverlay && (
           <div className="drawer-backdrop" onClick={responsive.closeSidebar} />
         )}
 
         <Editor />
 
-        {/* Desktop: contextual tools always visible in panel. Mobile: full-screen overlay */}
         {responsive.isDesktop ? (
-          <ContextPanel onEnterFullscreen={handleEnterFullscreen} />
+          rightSidebarOpen && (
+            <ContextPanel onEnterFullscreen={handleEnterFullscreen} onRestoreHistory={handleRestoreHistory} />
+          )
         ) : responsive.previewOpen && (
           <div className="mobile-preview-overlay">
-            <ContextPanel onEnterFullscreen={handleEnterFullscreen} onClose={responsive.closePreview} isMobile />
+            <ContextPanel onEnterFullscreen={handleEnterFullscreen} onClose={responsive.closePreview} onRestoreHistory={handleRestoreHistory} isMobile />
           </div>
         )}
       </div>
 
-      {/* Mobile bottom navigation */}
       {responsive.isMobile && <MobileNav />}
 
       <Modal />
