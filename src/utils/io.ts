@@ -193,8 +193,62 @@ export function renderMarkdown(mdText: string): string {
   if (!mdText) return "";
   try {
     marked.setOptions({ breaks: true, gfm: true });
-    return marked.parse(mdText) as string;
+    return sanitizeHTML(marked.parse(mdText) as string);
   } catch {
     return escapeHTML(mdText).replace(/\n/g, "<br>");
   }
+}
+
+const ALLOWED_TAGS = new Set([
+  "a", "blockquote", "br", "code", "del", "em", "h1", "h2", "h3", "h4", "h5", "h6",
+  "hr", "li", "ol", "p", "pre", "strong", "table", "tbody", "td", "th", "thead", "tr", "ul",
+]);
+const ALLOWED_ATTRS = new Set(["href", "title", "target", "rel"]);
+const URL_ATTRS = new Set(["href"]);
+
+function isSafeUrl(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.startsWith("#")
+    || trimmed.startsWith("/")
+    || trimmed.startsWith("http://")
+    || trimmed.startsWith("https://")
+    || trimmed.startsWith("mailto:");
+}
+
+function sanitizeHTML(html: string): string {
+  const template = document.createElement("template");
+  template.innerHTML = html;
+
+  const walk = (node: Node) => {
+    Array.from(node.childNodes).forEach(child => {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        const element = child as HTMLElement;
+        const tag = element.tagName.toLowerCase();
+
+        if (!ALLOWED_TAGS.has(tag)) {
+          element.replaceWith(document.createTextNode(element.textContent || ""));
+          return;
+        }
+
+        Array.from(element.attributes).forEach(attr => {
+          const name = attr.name.toLowerCase();
+          const value = attr.value;
+          if (name.startsWith("on") || !ALLOWED_ATTRS.has(name) || (URL_ATTRS.has(name) && !isSafeUrl(value))) {
+            element.removeAttribute(attr.name);
+          }
+        });
+
+        if (tag === "a") {
+          element.setAttribute("rel", "noopener noreferrer");
+          if (element.getAttribute("href")?.startsWith("http")) {
+            element.setAttribute("target", "_blank");
+          }
+        }
+      }
+      walk(child);
+    });
+  };
+
+  walk(template.content);
+  return template.innerHTML;
 }

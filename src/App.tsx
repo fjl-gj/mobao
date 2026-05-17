@@ -14,7 +14,51 @@ import Toast from './components/common/Toast';
 import FullScreenReader from './components/reader/FullScreenReader';
 import SearchOverlay from './components/common/SearchOverlay';
 import type { Chapter, Volume } from './contexts/NovelContext';
+import type { NovelStructure } from './utils/fileOps';
 import './App.css';
+
+function chapterFromEntry(entry: { name: string; relative_path: string }): Chapter {
+  return {
+    id: entry.relative_path,
+    title: entry.name.replace(/\.(md|txt)$/i, ''),
+    content: '',
+    relativePath: entry.relative_path,
+    contentLoaded: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function volumesFromStructure(structure: NovelStructure | null): Volume[] {
+  if (!structure) return [];
+  const volumes: Volume[] = [];
+
+  if (structure.prologue) {
+    volumes.push({
+      id: 'prologue',
+      title: '序章',
+      chapters: [chapterFromEntry(structure.prologue)],
+    });
+  }
+
+  structure.volumes.forEach(volume => {
+    volumes.push({
+      id: volume.name,
+      title: volume.name,
+      chapters: volume.chapters.map(chapterFromEntry),
+    });
+  });
+
+  if (structure.root_chapters.length > 0) {
+    volumes.push({
+      id: 'root',
+      title: '文稿',
+      chapters: structure.root_chapters.map(chapterFromEntry),
+    });
+  }
+
+  return volumes;
+}
 
 function App() {
   const { state: novelState, dispatch, saveToFile } = useNovel();
@@ -40,6 +84,20 @@ function App() {
       clearAll();
     }
   }, [projectState.activeNovelId, loadAll, clearAll]);
+
+  useEffect(() => {
+    dispatch({
+      type: 'SET_STATE',
+      payload: {
+        volumes: volumesFromStructure(projectState.novelStructure),
+        activeChapterId: null,
+        editorSelection: null,
+      },
+    });
+    setFullscreenIndex(0);
+    setIsFullscreen(false);
+    setShowSearch(false);
+  }, [projectState.activeNovelId, projectState.novelStructure, dispatch]);
 
   useEffect(() => {
     if (settings.lastSeriesId && projectState.series.length > 0) {

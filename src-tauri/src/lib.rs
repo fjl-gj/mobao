@@ -55,7 +55,34 @@ fn resolve_in_root(root_path: &str, relative_path: &str) -> Result<PathBuf, Stri
             _ => return Err("路径不能包含越界或绝对路径片段".into()),
         }
     }
-    Ok(Path::new(root_path).join(relative))
+
+    let root = Path::new(root_path)
+        .canonicalize()
+        .map_err(|e| format!("解析根目录失败: {}", e))?;
+    let target = root.join(relative);
+
+    if target.exists() {
+        let canonical_target = target
+            .canonicalize()
+            .map_err(|e| format!("解析目标路径失败: {}", e))?;
+        if !canonical_target.starts_with(&root) {
+            return Err("路径越过小说根目录".into());
+        }
+        return Ok(canonical_target);
+    }
+
+    if let Some(parent) = target.parent() {
+        if parent.exists() {
+            let canonical_parent = parent
+                .canonicalize()
+                .map_err(|e| format!("解析父目录失败: {}", e))?;
+            if !canonical_parent.starts_with(&root) {
+                return Err("路径越过小说根目录".into());
+            }
+        }
+    }
+
+    Ok(target)
 }
 
 /// 扫描小说目录，返回完整结构
@@ -220,7 +247,9 @@ fn delete_chapter(root_path: String, relative_path: String) -> Result<(), String
 /// 创建分卷目录
 #[tauri::command]
 fn create_volume(root_path: String, volume_name: String) -> Result<String, String> {
-    let root = Path::new(&root_path);
+    let root = Path::new(&root_path)
+        .canonicalize()
+        .map_err(|e| format!("解析根目录失败: {}", e))?;
     let safe_name = sanitize_filename(&volume_name);
     let dir = root.join(&safe_name);
 

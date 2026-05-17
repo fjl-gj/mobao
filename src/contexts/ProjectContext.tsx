@@ -152,7 +152,7 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       novelStructure: state.activeNovelId === action.payload ? null : state.novelStructure,
     };
     case 'SET_ACTIVE_SERIES': return { ...state, activeSeriesId: action.payload };
-    case 'SET_ACTIVE_NOVEL': return { ...state, activeNovelId: action.payload };
+    case 'SET_ACTIVE_NOVEL': return { ...state, activeNovelId: action.payload, novelStructure: null };
     case 'SET_NOVEL_STRUCTURE': return { ...state, novelStructure: action.payload };
     default: return state;
   }
