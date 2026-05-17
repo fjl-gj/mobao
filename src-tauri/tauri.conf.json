@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-cli/config.schema.json",
-  "productName": "墨宝小说编辑器",
+  "productName": "墨水坊小说编辑器",
   "version": "0.2.0",
-  "identifier": "com.mobao.app",
+  "identifier": "com.inklery.app",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "墨宝 - 小说编辑器",
+        "title": "墨水坊 - 小说编辑器",
         "width": 1200,
         "height": 800,
         "resizable": true,
@@ -37,7 +37,7 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:mobao.db"]
+      "preload": ["sqlite:inklery.db"]
     }
   }
 }

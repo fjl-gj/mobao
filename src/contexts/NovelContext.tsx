@@ -3,6 +3,7 @@ import { loadState, persistState } from '../utils/store';
 import { generateId } from '../utils/helpers';
 import { importMarkdownFile, importWordFile, exportToMarkdown, downloadFile } from '../utils/io';
 import { writeTextFile } from '../utils/fileOps';
+import { brand } from '../config/brand';
 
 type NovelAction =
   | { type: 'SET_STATE'; payload: Partial<NovelState> }
@@ -221,7 +222,7 @@ export function NovelProvider({ children }: { children: React.ReactNode }) {
   const exportMD = useCallback(() => {
     const md = exportToMarkdown(state.volumes);
     if (md.trim()) {
-      downloadFile(md, `墨宝_导出_${new Date().toISOString().slice(0, 10)}.md`);
+      downloadFile(md, `${brand.exportPrefix}_${new Date().toISOString().slice(0, 10)}.md`);
       dispatch({ type: 'ADD_TOAST', payload: { message: '导出成功', type: 'success' } });
     } else { dispatch({ type: 'ADD_TOAST', payload: { message: '没有内容可导出', type: 'warn' } }); }
   }, [state.volumes]);

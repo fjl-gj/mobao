@@ -8,6 +8,7 @@ import { useNovel } from '../../hooks/useNovel';
 import { useProject } from '../../hooks/useProject';
 import { useSettings } from '../../hooks/useSettings';
 import { useWritingTools } from '../../hooks/useWritingTools';
+import { brand } from '../../config/brand';
 import { readTextFile } from '../../utils/fileOps';
 import { renderMarkdown } from '../../utils/io';
 import EditorToolbar from './EditorToolbar';
@@ -239,7 +240,7 @@ export default function Editor() {
       <div className={`editor-area${focusMode ? ' focus-mode' : ''}`}>
         <div className="editor-welcome">
           <div className="welcome-icon">📚</div>
-          <h2>墨宝 · 小说编辑器</h2>
+          <h2>{brand.appTitle}</h2>
           <p>在左侧“项目”中新建或导入一部小说开始写作</p>
           <div className="welcome-steps">
             <span>1. 创建或选择一个集合</span>

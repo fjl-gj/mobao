@@ -3,6 +3,7 @@ import { useProject } from '../../hooks/useProject';
 import ContextMenu from '../common/ContextMenu';
 import ConfirmDialog from '../common/ConfirmDialog';
 import NovelDialog from './NovelDialog';
+import { brand } from '../../config/brand';
 
 type CtxTarget = { type: 'series'; id: string; name: string } | { type: 'novel'; id: string; title: string; seriesId: string } | null;
 
@@ -106,10 +107,10 @@ export default function ProjectExplorer({ onSelectNovel }: { onSelectNovel?: () 
       await setActiveNovel(nid);
     }},
     { sep: true },
-    { label: '从墨宝移除', icon: '🗑', danger: true,
+    { label: `从${brand.shortName}移除`, icon: '🗑', danger: true,
       action: () => setConfirmDlg({
         type: 'delete', title: '⚠️ 移除小说',
-        text: `确定从墨宝移除「${ntitle}」？仅删除数据库记录，不删除文件。`, target: { type: 'novel', id: nid, title: ntitle, seriesId: sid },
+        text: `确定从${brand.shortName}移除「${ntitle}」？仅删除数据库记录，不删除文件。`, target: { type: 'novel', id: nid, title: ntitle, seriesId: sid },
       })},
   ];
 

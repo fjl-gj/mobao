@@ -1,14 +1,14 @@
 <div align="center">
-  <img src="icon.svg" alt="墨宝图标" width="160" />
-  <h1>墨宝 · 小说编辑器</h1>
+  <img src="icon.svg" alt="墨水坊图标" width="160" />
+  <h1>墨水坊 · 小说编辑器</h1>
   <p>
     一款面向长篇小说创作的跨平台写作工具<br/>
     支持 Markdown 编辑、Word/Markdown 导入、写作资料管理、章节标注、笔记与历史快照
   </p>
   <p>
-    <img alt="License" src="https://img.shields.io/github/license/fjl-gj/mobao" />
-    <img alt="GitHub release" src="https://img.shields.io/github/v/release/fjl-gj/mobao" />
-    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/fjl-gj/mobao/build.yml" />
+    <img alt="License" src="https://img.shields.io/github/license/fjl-gj/inklery" />
+    <img alt="GitHub release" src="https://img.shields.io/github/v/release/fjl-gj/inklery" />
+    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/fjl-gj/inklery/build.yml" />
   </p>
 </div>
 
@@ -178,7 +178,7 @@ taskkill /PID <进程ID> /F
 ## 项目结构
 
 ```text
-mobao/
+inklery/
 ├─ src/
 │  ├─ components/
 │  │  ├─ app/          # 应用布局、工具栏、侧边栏、上下文面板、AI 占位
@@ -253,4 +253,4 @@ npm run build
 
 - 作者：fangjl
 - GitHub：fjl-gj
-- 仓库：https://github.com/fjl-gj/mobao
+- 仓库：https://github.com/fjl-gj/inklery

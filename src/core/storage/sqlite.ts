@@ -106,7 +106,7 @@ export class SqliteProvider implements IStorageProvider {
   async init(): Promise<void> {
     if (this.db) return;
     const { default: Database } = await import('@tauri-apps/plugin-sql');
-    this.db = await Database.load('sqlite:mobao.db');
+    this.db = await Database.load('sqlite:inklery.db');
     for (const sql of SQL_CREATE) {
       await this.db.execute(sql);
     }

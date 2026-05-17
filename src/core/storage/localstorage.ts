@@ -1,6 +1,6 @@
 import type { IStorageProvider } from './types';
 
-const STORAGE_PREFIX = 'mobao_v2_';
+const STORAGE_PREFIX = 'inklery_v1_';
 
 export class LocalStorageProvider implements IStorageProvider {
   readonly type = 'localstorage';

@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useNovel } from '../../hooks/useNovel';
 import { useProject } from '../../hooks/useProject';
 import { useResponsiveCtx } from '../../contexts/ResponsiveContext';
+import { brand } from '../../config/brand';
 import ThemeToggle from '../common/ThemeToggle';
 
 interface ToolbarProps {
@@ -56,7 +57,7 @@ export default function Toolbar({
         </div>
       )}
 
-      <span className="brand">墨宝</span>
+      <span className="brand">{brand.shortName}</span>
 
       {isDesktop ? (
         <>

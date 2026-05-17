@@ -1,6 +1,6 @@
 import type { NovelState } from "../contexts/NovelContext";
 
-const STORAGE_KEY = "mobao_novel_data_v1";
+const STORAGE_KEY = "inklery_novel_data_v1";
 
 /**
  * 从 localStorage 加载应用核心状态

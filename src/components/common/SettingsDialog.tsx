@@ -1,4 +1,5 @@
 import { useSettings } from '../../hooks/useSettings';
+import { brand } from '../../config/brand';
 
 interface SettingsDialogProps {
   onClose: () => void;
@@ -84,7 +85,7 @@ export default function SettingsDialog({ onClose }: SettingsDialogProps) {
               value={settings.aiProvider}
               onChange={e => updateSettings({ aiProvider: e.target.value as typeof settings.aiProvider })}
             >
-              <option value="mobao">墨宝内置服务</option>
+              <option value="inklery">{brand.aiProviderName}</option>
               <option value="openai">OpenAI</option>
               <option value="custom">自定义接口</option>
             </select>

@@ -6,7 +6,7 @@ function isPrologue(name: string) {
 }
 function naturalSort(a: string, b: string) { return a.localeCompare(b, 'zh-CN', { numeric: true }); }
 
-const STORAGE_PREFIX = 'mobao_browser_fs_';
+const STORAGE_PREFIX = 'inklery_browser_fs_';
 const directoryFiles = new Map<string, File[]>();
 
 function normalizePath(path: string): string {

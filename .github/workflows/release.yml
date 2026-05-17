@@ -96,19 +96,19 @@ jobs:
           APK=$(find release-files -name '*.apk' -type f | sort | head -n 1)
 
           if [ -n "$DEB" ]; then
-            cp "$DEB" "release-assets/MoBao_x86_64_v${VERSION}.deb"
+            cp "$DEB" "release-assets/Inklery_x86_64_v${VERSION}.deb"
           fi
           if [ -n "$APPIMAGE" ]; then
-            cp "$APPIMAGE" "release-assets/MoBao_v${VERSION}.AppImage"
+            cp "$APPIMAGE" "release-assets/Inklery_v${VERSION}.AppImage"
           fi
           if [ -n "$DMG" ]; then
-            cp "$DMG" "release-assets/MoBao_aarch64_v${VERSION}.dmg"
+            cp "$DMG" "release-assets/Inklery_aarch64_v${VERSION}.dmg"
           fi
           if [ -n "$EXE" ]; then
-            cp "$EXE" "release-assets/MoBao_x86_64_v${VERSION}.exe"
+            cp "$EXE" "release-assets/Inklery_x86_64_v${VERSION}.exe"
           fi
           if [ -n "$APK" ]; then
-            cp "$APK" "release-assets/MoBao_v${VERSION}.apk"
+            cp "$APK" "release-assets/Inklery_v${VERSION}.apk"
           fi
 
           ls -la release-assets
