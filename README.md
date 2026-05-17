@@ -1,212 +1,256 @@
 <div align="center">
-  <img src="icon.svg" alt="墨宝图标" width="160" />
-  <h1>墨宝 · 小说编辑器</h1>
+  <img src="icon.svg" alt="墨水坊图标" width="160" />
+  <h1>墨水坊 · 小说编辑器</h1>
   <p>
-    📖 一款清新免打扰的跨平台小说创作工具<br/>
-    支持 Markdown / Word 导入 · 多层目录 · 大纲设计 · 沉浸式阅读
+    一款面向长篇小说创作的跨平台写作工具<br/>
+    支持 Markdown 编辑、Word/Markdown 导入、写作资料管理、章节标注、笔记与历史快照
   </p>
   <p>
-    <img alt="License" src="https://img.shields.io/github/license/fjl-gj/mobao" />
-    <img alt="GitHub release (latest by date)" src="https://img.shields.io/github/v/release/fjl-gj/mobao" />
-    <img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/fjl-gj/mobao/build.yml" />
+    <img alt="License" src="https://img.shields.io/github/license/fjl-gj/inklery" />
+    <img alt="GitHub release" src="https://img.shields.io/github/v/release/fjl-gj/inklery" />
+    <img alt="Build" src="https://img.shields.io/github/actions/workflow/status/fjl-gj/inklery/build.yml" />
   </p>
 </div>
 
 ---
 
-## ✨ 功能特性
+## 功能概览
 
-- **📝 专注写作**  
-  极简 Markdown 编辑器，左侧写作，右侧实时预览，自动保存至浏览器本地，让你专注于故事本身。
+### 写作与编辑
 
-- **📚 分层目录**  
-  按 **卷 → 章节** 组织小说结构，支持新建、重命名、上下移动、删除，轻松管理长篇作品。
+- 基于 CodeMirror 的 Markdown 编辑器
+- 常用 Markdown 工具栏：加粗、斜体、删除线、标题、引用、列表、链接、图片、分割线、撤销与重做
+- 支持 `Ctrl+S` 保存、`Ctrl+E` 切换编辑/预览
+- 编辑器状态栏显示本章字数、全书字数、光标行列
+- 支持专注模式、章节标题编辑、自动保存
+- Markdown 预览优化了段落、标题、引用、列表、分割线等排版间距
 
-- **🧭 大纲设计**  
-  独立的大纲面板，可规划故事线索，每条大纲支持添加、删除，后期可关联到具体章节。
+### 项目与章节管理
 
-- **📥 双格式导入**  
-  支持导入 Markdown 文件（`.md`）和 Word 文档（`.docx`），自动按标题层级解析为卷和章节。
+- 按项目、目录、卷、章节组织长篇作品
+- 支持新建卷、新建章节、章节选择与结构刷新
+- 左侧栏包含：项目、目录、大纲、人物、世界、时间、线索
+- 顶部提供侧边栏控制：
+  - 收起/展开两侧侧边栏
+  - 单独收起/展开左侧边栏
 
-- **📤 一键导出**  
-  将整部作品导出为标准 Markdown 文件，便于备份或跨平台发布。
+### 导入与导出
 
-- **📖 阅读与预览**  
-  侧边预览面板支持“普通模式”与“阅读器模式”；点击“全屏”可进入沉浸式阅读，支持 PC / 手机版式切换、字体缩放、翻页按钮及键盘快捷键（← → 切换章节，↑ ↓ 翻页，Esc 退出）。
+- 支持 Markdown 文件导入
+- 支持 Word `.docx` 导入，使用 `mammoth` 转换为 Markdown 风格内容
+- 支持整部作品导出为 Markdown
+- 桌面端三横菜单中集中放置导入、导出、搜索、设置等全局操作
 
-- **💾 离线存储**  
-  所有数据自动保存在浏览器 `localStorage`，无需网络，也无需注册账号。
+### 标注、笔记与上下文
 
-- **🖥️ 全平台可用**  
-  基于 Tauri 2 构建，可打包为 **Windows、macOS、Linux、Android、iOS** 安装包（iOS 需自行签名）。
+- 右侧上下文面板包含：预览、标注、历史、笔记、AI
+- 标注基于编辑器当前选区创建，记录：
+  - 章节路径
+  - 选中文本
+  - 起止位置
+  - 标注内容
+  - 创建时间
+- 笔记基于编辑器当前选区或光标位置创建，适合记录正文相关想法
+- 标注和笔记都支持多条记录，不再覆盖旧内容
 
-- **🎨 干净色调**  
-  暖灰宣纸底色，竖线稿纸风格，毛笔砚台元素，营造古朴、专注的创作氛围。
+### 历史快照
+
+- 按章节记录最近 10 条历史快照
+- 手动保存、自动保存、切换章节、退出编辑时记录历史
+- 自动保存会过滤过小变化，避免生成过多无意义记录
+- 支持从历史记录恢复到旧版本
+- 恢复前会自动记录一条“恢复前备份”，降低误操作风险
+
+### 设置中心
+
+- 全局设置从应用菜单打开
+- 支持编辑器偏好：
+  - 编辑方式：Markdown / Word 式富文本预留
+  - 字体
+  - 字号
+  - 行高
+  - 自动保存
+  - 行号
+  - 拼写检查
+- 账户与云空间区域已预留：
+  - 登录/注册入口
+  - 300MB 免费 OSS 空间展示
+  - 云同步开关占位
+- AI 功能配置已预留：
+  - 服务商
+  - 默认模型
+  - 当前章节上下文
+  - 写作资料上下文
+  - 对话历史保存
+
+### AI 助手预留
+
+- 右侧栏新增 AI 工作区占位
+- 支持“对话 / 编辑”两个模式的 UI 结构
+- 预留续写、润色、提取大纲、检查设定冲突等快捷动作
+- 当前版本不接入真实模型接口，AI 开关默认关闭
+
+### 存储
+
+- 桌面端使用 Tauri + SQLite 持久化项目资料、人物、世界观、时间线、线索、标注、笔记与历史
+- Web/浏览器环境使用本地存储作为兼容方案
+- 正文内容按项目文件结构保存，写作资料与上下文记录存储在应用数据库中
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
-| 依赖 | 版本要求 | 说明 |
-|------|---------|------|
-| Node.js | ≥ 22 | 前端运行时 |
-| Yarn (或 npm) | 最新版 | 包管理器 |
-| Rust | ≥ 1.77 | 仅桌面/移动端打包需要 |
-| Android SDK / NDK | API 34, NDK 27 | 仅构建 Android 时需要 |
-| Xcode | 最新版 | 仅构建 iOS 时需要（macOS） |
+| 依赖 | 建议版本 | 说明 |
+| --- | --- | --- |
+| Node.js | 18+ / 20+ / 22+ | 前端开发环境 |
+| npm | 随 Node 安装 | 包管理器 |
+| Rust | 1.77+ | Tauri 桌面端开发需要 |
+| Android SDK / NDK | 按 Tauri 要求配置 | Android 构建需要 |
+| Xcode | 最新稳定版 | iOS 构建需要，仅 macOS |
 
-### 纯 Web 版开发
-
-无需安装 Rust 或任何原生环境。
+### 安装依赖
 
 ```bash
-# 克隆仓库
-git clone https://github.com/fjl-gj/mobao.git
-cd mobao
-
-# 安装依赖
-yarn install
-
-# 启动开发服务器
-yarn dev
+npm install
 ```
 
-
-## 桌面版开发（Tauri）
+### Web 开发模式
 
 ```bash
-# 安装前端依赖（如果还没装）
-yarn install
-
-# 启动 Tauri 开发模式（会自动打开桌面窗口）
-yarn tauri dev
+npm run dev
 ```
 
-## 打包桌面安装包
+默认由 Vite 启动本地开发服务。
+
+### 桌面端开发模式
+
 ```bash
-yarn tauri build
+npm run tauri dev
 ```
 
-构建完成后，安装包位于：
+该命令会先启动 Vite，再启动 Tauri 桌面窗口。
 
-Windows: src-tauri/target/release/bundle/msi/ 或 nsis/
+### 构建 Web 版本
 
-macOS: src-tauri/target/release/bundle/dmg/
-
-Linux: src-tauri/target/release/bundle/deb/ 或 appimage/
-
-
-📱 移动端构建
-
-Android
 ```bash
-# 初始化 Android 项目（首次）
-npx tauri android init
-
-# 开发调试
-yarn tauri android dev
-
-# 打包 APK
-yarn tauri android build
+npm run build
 ```
 
-iOS（仅限 macOS）
+### 构建桌面安装包
+
 ```bash
-# 初始化 iOS 项目（首次）
-npx tauri ios init
-
-# 开发调试
-yarn tauri ios dev
-
-# 打包 IPA
-yarn tauri ios build
+npm run tauri build
 ```
 
-## 📂 项目结构
+构建产物位于：
+
+- Windows：`src-tauri/target/release/bundle/msi/` 或 `src-tauri/target/release/bundle/nsis/`
+- macOS：`src-tauri/target/release/bundle/dmg/`
+- Linux：`src-tauri/target/release/bundle/deb/` 或 `src-tauri/target/release/bundle/appimage/`
+
+---
+
+## 常见问题
+
+### 端口被占用
+
+如果运行 `npm run tauri dev` 时看到：
 
 ```text
-mobao/
-├── index.html                     # HTML 入口
-├── package.json                   # 项目配置与依赖
-├── vite.config.ts                 # Vite 配置
-├── tsconfig.json                  # TypeScript 配置
-├── tsconfig.node.json
-├── yarn.lock
-├── .gitignore
-├── .github/
-│   └── workflows/
-│       └── build.yml              # GitHub Actions 全平台构建
-├── icon.svg                       # 应用图标源文件
-├── LICENSE                        # 许可证
-├── README.md
-├── src/                           # 前端源代码
-│   ├── main.tsx                   # React 挂载入口
-│   ├── App.tsx                    # 主布局（全屏阅读器控制）
-│   ├── App.css                    # 主布局样式
-│   ├── contexts/
-│   │   └── NovelContext.tsx       # 全局状态（Reducer + Provider）
-│   ├── hooks/
-│   │   └── useNovel.ts            # 便捷 hook
-│   ├── components/
-│   │   ├── Toolbar.tsx            # 顶部工具栏
-│   │   ├── Sidebar.tsx            # 左侧面板（目录/大纲切换）
-│   │   ├── Tree.tsx               # 目录树（卷/章）
-│   │   ├── Outline.tsx            # 大纲面板
-│   │   ├── Editor.tsx             # 编辑器
-│   │   ├── Preview.tsx            # 预览 / 阅读器
-│   │   ├── FullScreenReader.tsx   # 沉浸式全屏阅读器
-│   │   ├── Modal.tsx              # 弹窗
-│   │   └── Toast.tsx              # 提示消息
-│   ├── utils/
-│   │   ├── store.ts               # 本地存储（load / persist）
-│   │   ├── io.ts                  # 导入导出，Markdown 渲染
-│   │   └── helpers.ts             # 生成 ID、防抖、HTML 转义
-│   └── styles/
-│       └── global.css             # 全局样式变量与重置
-└── src-tauri/                     # Tauri 后端（Rust）
-    ├── Cargo.toml
-    ├── tauri.conf.json
-    ├── build.rs
-    ├── icons/                     # 应用图标（各尺寸）
-    ├── src/
-    │   ├── main.rs
-    │   └── lib.rs
-    └── capabilities/
-        └── default.json
-
-
+Port 1420 is already in use
 ```
 
+说明 Vite 默认端口被占用。可以先查找并结束占用进程：
 
+```powershell
+netstat -ano | findstr :1420
+taskkill /PID <进程ID> /F
+```
 
-## 🤝 贡献
+### SQLite 提示缺少字段
 
-欢迎任何形式的贡献！包括但不限于：
+如果本地旧数据库与新版本表结构不一致，可能出现缺少字段的提示。当前版本已加入部分迁移逻辑；若仍遇到旧库问题，需要根据报错字段补迁移或重建本地开发数据库。
 
-- 提交 Issue 反馈问题或建议
+---
 
-- 发起 Pull Request 改进代码
+## 项目结构
 
-- 编写文档
+```text
+inklery/
+├─ src/
+│  ├─ components/
+│  │  ├─ app/          # 应用布局、工具栏、侧边栏、上下文面板、AI 占位
+│  │  ├─ common/       # 通用弹窗、设置、搜索、主题、提示
+│  │  ├─ editor/       # 编辑器、编辑工具栏、目录树
+│  │  ├─ project/      # 项目与小说导入/创建
+│  │  ├─ reader/       # 预览与全屏阅读
+│  │  └─ tools/        # 大纲、人物、世界、时间线、线索
+│  ├─ contexts/        # React 全局状态
+│  ├─ core/            # 平台、文件系统、存储适配
+│  ├─ hooks/           # 业务 hooks
+│  ├─ utils/           # 文件、导入导出、Markdown 渲染等工具
+│  ├─ App.tsx
+│  └─ App.css
+├─ src-tauri/          # Tauri 桌面端工程
+├─ package.json
+├─ vite.config.ts
+└─ README.md
+```
 
-- 分享你的使用体验
+---
 
-请在提交前确保代码风格一致，并遵循 Apache 2.0 许可证。
+## 技术栈
 
+- React 18
+- TypeScript
+- Vite
+- CodeMirror 6
+- Marked
+- Mammoth
+- Tauri 2
+- SQLite plugin for Tauri
 
-## 📄 许可证
+---
 
-本项目基于 Apache License 2.0 开源，可自由使用、修改和分发，包括商用。保留原始版权声明即可。
+## 路线规划
 
+- 接入真正的 Word 式富文本编辑器
+- 接入用户登录与云端 OSS 同步
+- 接入 AI 模型对话与 AI 编辑工作流
+- 标注与笔记定位高亮回显
+- 历史版本差异对比
+- 更完整的移动端写作体验
 
-## 💬 联系方式
-作者：fangjl
+---
 
-GitHub：@fjl-gj
+## 贡献
 
-仓库：https://github.com/fjl-gj/mobao
+欢迎通过 Issue 或 Pull Request 参与改进：
 
+- 反馈 bug
+- 提出写作流程建议
+- 改进 UI/交互
+- 补充文档
+- 完善跨平台构建
 
-墨香盈袖，宝思如泉 —— 你的下一部作品，从这里开始。
+提交前建议运行：
+
+```bash
+npm run build
+```
+
+---
+
+## 许可证
+
+本项目基于 Apache License 2.0 开源。
+
+---
+
+## 联系方式
+
+- 作者：fangjl
+- GitHub：fjl-gj
+- 仓库：https://github.com/fjl-gj/inklery

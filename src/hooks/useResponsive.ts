@@ -28,7 +28,7 @@ function getBreakpoint(w: number): Breakpoint {
 export function useResponsive(): ResponsiveInfo {
   const [width, setWidth] = useState(window.innerWidth);
   const [height, setHeight] = useState(window.innerHeight);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => getBreakpoint(window.innerWidth) === 'desktop');
   const [previewOpen, setPreviewOpen] = useState(false);
 
   useEffect(() => {

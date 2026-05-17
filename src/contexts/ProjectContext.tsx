@@ -1,8 +1,12 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { generateId } from '../utils/helpers';
-import { initDatabase, getAll, getById, insert, update, remove, isBrowser } from '../utils/db';
-import { createChapter, createVolume, scanNovelDirectory, writeTextFile } from '../utils/fileOps';
+import { initDatabase, getAll, getById, insert, update, remove } from '../utils/db';
+import { createVolume, scanNovelDirectory, writeTextFile } from '../utils/fileOps';
 import type { NovelStructure } from '../utils/fileOps';
+
+type StructureMode = 'flat' | 'volume';
+type ChapterRange = { count: number };
+type NovelSourceType = 'create' | 'import';
 
 // ---------- 数据接口 ----------
 
@@ -22,6 +26,11 @@ export interface Novel {
   root_path: string;
   structure_mode: 'flat' | 'volume';
   prologue_path: string | null;
+  chapter_start?: number | null;
+  chapter_end?: number | null;
+  chapter_count?: number | null;
+  source_type?: NovelSourceType;
+  structure_json?: string | null;
   cover_path: string | null;
   description: string;
   sort_order: number;
@@ -51,6 +60,45 @@ const initialState: ProjectState = {
   error: null,
 };
 
+function normalizeNovelStructure(novel: Novel, structure: NovelStructure): NovelStructure {
+  if (novel.structure_mode !== 'flat') return structure;
+  const chapters = [
+    ...structure.volumes.flatMap(volume => volume.chapters),
+    ...structure.root_chapters,
+  ];
+  const count = novel.chapter_count || chapters.length || Math.max(1, (novel.chapter_end || 1) - (novel.chapter_start || 1) + 1);
+  return {
+    ...structure,
+    mode: 'flat',
+    volumes: chapters.length
+      ? [{ name: `第一卷（${count}章）`, chapters }]
+      : [],
+    root_chapters: [],
+  };
+}
+
+function getStoredStructure(novel: Novel): NovelStructure | null {
+  if (!novel.structure_json) return null;
+  try {
+    const parsed = JSON.parse(novel.structure_json);
+    if (parsed && Array.isArray(parsed.volumes) && Array.isArray(parsed.root_chapters)) {
+      return normalizeNovelStructure(novel, parsed);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function loadNovelStructure(novel: Novel): Promise<NovelStructure | null> {
+  try {
+    const structure = await scanNovelDirectory(novel.root_path);
+    return normalizeNovelStructure(novel, structure);
+  } catch {
+    return getStoredStructure(novel);
+  }
+}
+
 // ---------- Actions ----------
 
 type ProjectAction =
@@ -61,6 +109,7 @@ type ProjectAction =
   | { type: 'UPDATE_SERIES'; payload: Series }
   | { type: 'REMOVE_SERIES'; payload: string }
   | { type: 'SET_NOVELS'; payload: Novel[] }
+  | { type: 'MERGE_NOVELS'; payload: { seriesId: string; novels: Novel[] } }
   | { type: 'ADD_NOVEL'; payload: Novel }
   | { type: 'UPDATE_NOVEL'; payload: Novel }
   | { type: 'REMOVE_NOVEL'; payload: string }
@@ -84,6 +133,13 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       activeSeriesId: state.activeSeriesId === action.payload ? null : state.activeSeriesId,
     };
     case 'SET_NOVELS': return { ...state, novels: action.payload };
+    case 'MERGE_NOVELS': return {
+      ...state,
+      novels: [
+        ...state.novels.filter(n => n.series_id !== action.payload.seriesId),
+        ...action.payload.novels,
+      ],
+    };
     case 'ADD_NOVEL': return { ...state, novels: [...state.novels, action.payload] };
     case 'UPDATE_NOVEL': return {
       ...state,
@@ -96,7 +152,7 @@ function projectReducer(state: ProjectState, action: ProjectAction): ProjectStat
       novelStructure: state.activeNovelId === action.payload ? null : state.novelStructure,
     };
     case 'SET_ACTIVE_SERIES': return { ...state, activeSeriesId: action.payload };
-    case 'SET_ACTIVE_NOVEL': return { ...state, activeNovelId: action.payload };
+    case 'SET_ACTIVE_NOVEL': return { ...state, activeNovelId: action.payload, novelStructure: null };
     case 'SET_NOVEL_STRUCTURE': return { ...state, novelStructure: action.payload };
     default: return state;
   }
@@ -112,8 +168,17 @@ interface ProjectContextType {
   renameSeries: (id: string, name: string) => Promise<void>;
   deleteSeries: (id: string) => Promise<void>;
   loadNovels: (seriesId: string) => Promise<void>;
-  createNovel: (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string) => Promise<string>;
-  importNovel: (seriesId: string, rootPath: string) => Promise<string>;
+  createNovel: (seriesId: string, title: string, mode: StructureMode, rootPath: string, chapterRange?: ChapterRange) => Promise<string>;
+  importNovel: (seriesId: string, rootPath: string, existingStructure?: {
+    title?: string;
+    mode: StructureMode;
+    prologue_path: string | null;
+    chapter_start?: number | null;
+    chapter_end?: number | null;
+    chapter_count?: number | null;
+    structure_json?: string | null;
+    source_type?: NovelSourceType;
+  }) => Promise<string>;
   updateNovel: (id: string, data: Partial<Novel>) => Promise<void>;
   deleteNovel: (id: string) => Promise<void>;
   setActiveSeries: (id: string | null) => void;
@@ -176,20 +241,24 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const loadNovels = useCallback(async (seriesId: string) => {
     const novels = await getAll<Novel>('novels', 'series_id = ?', [seriesId]);
-    dispatch({ type: 'SET_NOVELS', payload: novels });
+    dispatch({ type: 'MERGE_NOVELS', payload: { seriesId, novels } });
   }, []);
 
-  const createNovel = useCallback(async (seriesId: string, title: string, mode: 'flat' | 'volume', rootPath: string): Promise<string> => {
+  const createNovel = useCallback(async (seriesId: string, title: string, mode: StructureMode, rootPath: string, chapterRange?: ChapterRange): Promise<string> => {
     const id = generateId();
     const now = new Date().toISOString();
-    if (!isBrowser()) {
-      if (mode === 'volume') {
-        await createVolume(rootPath, '分卷一');
-        await createChapter(rootPath, '分卷一', '第一章');
-      } else {
-        await writeTextFile(rootPath, '第一章.md', '# 第一章\n\n');
+    const chapterCount = mode === 'flat' ? Math.max(1, Math.min(9999, Math.floor(chapterRange?.count || 1))) : null;
+    if (mode === 'volume') {
+      await createVolume(rootPath, '');
+    } else if (chapterCount) {
+      for (let i = 1; i <= chapterCount; i++) {
+        const cn = String(i).padStart(3, '0');
+        await writeTextFile(`${rootPath}/第${cn}章.md`, `# 第${cn}章\n\n`);
       }
     }
+    const structureMeta = mode === 'flat' && chapterCount
+      ? JSON.stringify({ mode, virtual_volume: `第一卷（${chapterCount}章）`, chapter_count: chapterCount })
+      : null;
     const novel: Novel = {
       id,
       series_id: seriesId,
@@ -197,6 +266,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       root_path: rootPath,
       structure_mode: mode,
       prologue_path: null,
+      chapter_start: null,
+      chapter_end: null,
+      chapter_count: chapterCount,
+      source_type: 'create',
+      structure_json: structureMeta,
       cover_path: null,
       description: '',
       sort_order: state.novels.length,
@@ -208,23 +282,40 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     return id;
   }, [state.novels.length]);
 
-  const importNovel = useCallback(async (seriesId: string, rootPath: string): Promise<string> => {
-    let mode: 'flat' | 'volume' = 'volume';
-    let prologue: string | null = null;
-    try {
-      const structure = await scanNovelDirectory(rootPath);
-      mode = structure.mode;
-      prologue = structure.prologue?.relative_path || null;
-    } catch {
-      // 浏览器模式或扫描失败，使用默认值
-      console.warn('scanNovelDirectory 不可用（浏览器模式），使用默认结构');
+  const importNovel = useCallback(async (seriesId: string, rootPath: string, existingStructure?: {
+    title?: string;
+    mode: StructureMode;
+    prologue_path: string | null;
+    chapter_start?: number | null;
+    chapter_end?: number | null;
+    chapter_count?: number | null;
+    structure_json?: string | null;
+    source_type?: NovelSourceType;
+  }): Promise<string> => {
+    let mode: StructureMode = existingStructure?.mode || 'volume';
+    let prologue: string | null = existingStructure?.prologue_path || null;
+    let structureJson = existingStructure?.structure_json || null;
+    if (!existingStructure) {
+      try {
+        const structure = await scanNovelDirectory(rootPath);
+        mode = structure.mode;
+        prologue = structure.prologue?.relative_path || null;
+        structureJson = JSON.stringify(structure);
+      } catch {
+        console.warn('scanNovelDirectory 不可用，使用默认结构');
+      }
     }
-    const title = rootPath.split(/[/\\]/).pop() || '导入的小说';
+    const title = existingStructure?.title?.trim() || rootPath.split(/[/\\]/).pop() || '导入的小说';
     const id = generateId();
     const now = new Date().toISOString();
     const novel: Novel = {
       id, series_id: seriesId, title, root_path: rootPath,
       structure_mode: mode, prologue_path: prologue,
+      chapter_start: existingStructure?.chapter_start ?? null,
+      chapter_end: existingStructure?.chapter_end ?? null,
+      chapter_count: existingStructure?.chapter_count ?? null,
+      source_type: existingStructure?.source_type || 'import',
+      structure_json: structureJson,
       cover_path: null, description: '',
       sort_order: state.novels.length, created_at: now, updated_at: now,
     };
@@ -238,10 +329,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     const updated = await getById<Novel>('novels', id);
     if (updated) dispatch({ type: 'UPDATE_NOVEL', payload: updated });
     if (id === state.activeNovelId && data.root_path) {
-      try {
-        const structure = await scanNovelDirectory(data.root_path);
-        dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: structure });
-      } catch { /* browser mode */ }
+      dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: updated ? await loadNovelStructure(updated) : null });
     }
   }, [state.activeNovelId]);
 
@@ -259,12 +347,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     if (id) {
       const novel = await getById<Novel>('novels', id);
       if (novel && novel.root_path) {
-        try {
-          const structure = await scanNovelDirectory(novel.root_path);
-          dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: structure });
-        } catch {
-          dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: null });
-        }
+        dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: await loadNovelStructure(novel) });
       }
     } else {
       dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: null });
@@ -275,10 +358,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     if (!state.activeNovelId) return;
     const novel = await getById<Novel>('novels', state.activeNovelId);
     if (novel && novel.root_path) {
-      try {
-        const structure = await scanNovelDirectory(novel.root_path);
-        dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: structure });
-      } catch { /* browser mode */ }
+      dispatch({ type: 'SET_NOVEL_STRUCTURE', payload: await loadNovelStructure(novel) });
     }
   }, [state.activeNovelId]);
 

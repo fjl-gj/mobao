@@ -1,6 +1,6 @@
 import type { NovelState } from "../contexts/NovelContext";
 
-const STORAGE_KEY = "mobao_novel_data_v1";
+const STORAGE_KEY = "inklery_novel_data_v1";
 
 /**
  * 从 localStorage 加载应用核心状态
@@ -15,6 +15,9 @@ export function loadState(): NovelState {
         outline: data.outline || [],
         activeChapterId: data.activeChapterId || null,
         previewMode: data.previewMode || "preview",
+        workspaceMode: data.workspaceMode || "read",
+        contextTab: data.contextTab || "preview",
+        editorSelection: null,
         toasts: [],
         modal: null,
       };
@@ -28,6 +31,9 @@ export function loadState(): NovelState {
     outline: [],
     activeChapterId: null,
     previewMode: "preview",
+    workspaceMode: "read",
+    contextTab: "preview",
+    editorSelection: null,
     toasts: [],
     modal: null,
   };
@@ -38,8 +44,17 @@ export function loadState(): NovelState {
  */
 export function persistState(state: NovelState): void {
   try {
-    const { toasts, modal, ...core } = state;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(core));
+    const { toasts, modal, editorSelection, ...core } = state;
+    const slim = {
+      ...core,
+      volumes: core.volumes.map(volume => ({
+        ...volume,
+        chapters: volume.chapters.map(chapter => chapter.relativePath
+          ? { ...chapter, content: '', contentLoaded: false }
+          : chapter),
+      })),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(slim));
   } catch (e) {
     console.error("保存数据失败", e);
   }

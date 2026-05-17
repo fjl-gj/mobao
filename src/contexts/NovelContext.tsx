@@ -3,6 +3,7 @@ import { loadState, persistState } from '../utils/store';
 import { generateId } from '../utils/helpers';
 import { importMarkdownFile, importWordFile, exportToMarkdown, downloadFile } from '../utils/io';
 import { writeTextFile } from '../utils/fileOps';
+import { brand } from '../config/brand';
 
 type NovelAction =
   | { type: 'SET_STATE'; payload: Partial<NovelState> }
@@ -10,7 +11,7 @@ type NovelAction =
   | { type: 'DELETE_VOLUME'; payload: string }
   | { type: 'RENAME_VOLUME'; payload: { id: string; title: string } }
   | { type: 'ADD_CHAPTER'; payload: { volId: string; title: string; content?: string; relativePath?: string } }
-  | { type: 'UPSERT_CHAPTER'; payload: { title: string; content: string; relativePath: string; volumeTitle?: string } }
+  | { type: 'UPSERT_CHAPTER'; payload: { title: string; content?: string; relativePath: string; volumeTitle?: string; contentLoaded?: boolean } }
   | { type: 'DELETE_CHAPTER'; payload: string }
   | { type: 'SELECT_CHAPTER'; payload: string }
   | { type: 'UPDATE_CHAPTER_TITLE'; payload: { id: string; title: string } }
@@ -18,6 +19,9 @@ type NovelAction =
   | { type: 'MOVE_CHAPTER'; payload: { chId: string; direction: 'up' | 'down' } }
   | { type: 'MOVE_VOLUME'; payload: { volId: string; direction: 'up' | 'down' } }
   | { type: 'SET_PREVIEW_MODE'; payload: 'preview' | 'reader' }
+  | { type: 'SET_WORKSPACE_MODE'; payload: 'read' | 'edit' }
+  | { type: 'SET_CONTEXT_TAB'; payload: 'preview' | 'annotations' | 'history' | 'notes' | 'ai' }
+  | { type: 'SET_EDITOR_SELECTION'; payload: EditorSelection | null }
   | { type: 'ADD_OUTLINE_ITEM'; payload: { text: string; level: number } }
   | { type: 'DELETE_OUTLINE_ITEM'; payload: string }
   | { type: 'LINK_OUTLINE'; payload: { outlineId: string; chapterId: string } }
@@ -31,6 +35,9 @@ export interface NovelState {
   outline: OutlineItem[];
   activeChapterId: string | null;
   previewMode: 'preview' | 'reader';
+  workspaceMode: 'read' | 'edit';
+  contextTab: 'preview' | 'annotations' | 'history' | 'notes' | 'ai';
+  editorSelection: EditorSelection | null;
   toasts: ToastItem[];
   modal: ModalData | null;
 }
@@ -40,6 +47,7 @@ export interface Chapter {
   title: string;
   content: string;
   relativePath?: string;
+  contentLoaded?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -56,6 +64,14 @@ export interface OutlineItem {
   level: number;
   parentId: string | null;
   linkedChapterId: string | null;
+}
+
+export interface EditorSelection {
+  chapterId: string;
+  chapterPath: string;
+  from: number;
+  to: number;
+  selectedText: string;
 }
 
 export interface ToastItem {
@@ -88,6 +104,7 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
         title: action.payload.title,
         content: action.payload.content || '',
         relativePath: action.payload.relativePath,
+        contentLoaded: action.payload.content !== undefined || !action.payload.relativePath,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -104,12 +121,13 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
             return {
               ...c,
               title: action.payload.title,
-              content: action.payload.content,
+              content: action.payload.content ?? c.content,
               relativePath: action.payload.relativePath,
+              contentLoaded: action.payload.contentLoaded ?? (action.payload.content !== undefined ? true : c.contentLoaded),
               updatedAt: now,
             };
           }
-          return c;
+          return c.contentLoaded ? { ...c, content: '', contentLoaded: false } : c;
         }),
       }));
 
@@ -121,8 +139,9 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
       const chapter: Chapter = {
         id: generateId(),
         title: action.payload.title,
-        content: action.payload.content,
+        content: action.payload.content ?? '',
         relativePath: action.payload.relativePath,
+        contentLoaded: action.payload.contentLoaded ?? (action.payload.content !== undefined),
         createdAt: now,
         updatedAt: now,
       };
@@ -146,13 +165,16 @@ function novelReducer(state: NovelState, action: NovelAction): NovelState {
     case 'UPDATE_CHAPTER_TITLE':
       return { ...state, volumes: state.volumes.map(v => ({ ...v, chapters: v.chapters.map(c => c.id === action.payload.id ? { ...c, title: action.payload.title, updatedAt: new Date().toISOString() } : c) })) };
     case 'UPDATE_CHAPTER_CONTENT':
-      return { ...state, volumes: state.volumes.map(v => ({ ...v, chapters: v.chapters.map(c => c.id === action.payload.id ? { ...c, content: action.payload.content, updatedAt: new Date().toISOString() } : c) })) };
+      return { ...state, volumes: state.volumes.map(v => ({ ...v, chapters: v.chapters.map(c => c.id === action.payload.id ? { ...c, content: action.payload.content, contentLoaded: true, updatedAt: new Date().toISOString() } : c) })) };
     case 'MOVE_CHAPTER':
       return { ...state, volumes: state.volumes.map(v => { const idx = v.chapters.findIndex(c => c.id === action.payload.chId); if (idx === -1) return v; const newIdx = action.payload.direction === 'up' ? idx - 1 : idx + 1; if (newIdx < 0 || newIdx >= v.chapters.length) return v; const chapters = [...v.chapters]; [chapters[idx], chapters[newIdx]] = [chapters[newIdx], chapters[idx]]; return { ...v, chapters }; }) };
     case 'MOVE_VOLUME': {
       const idx = state.volumes.findIndex(v => v.id === action.payload.volId); if (idx === -1) return state; const newIdx = action.payload.direction === 'up' ? idx - 1 : idx + 1; if (newIdx < 0 || newIdx >= state.volumes.length) return state; const volumes = [...state.volumes]; [volumes[idx], volumes[newIdx]] = [volumes[newIdx], volumes[idx]]; return { ...state, volumes };
     }
     case 'SET_PREVIEW_MODE': return { ...state, previewMode: action.payload };
+    case 'SET_WORKSPACE_MODE': return { ...state, workspaceMode: action.payload };
+    case 'SET_CONTEXT_TAB': return { ...state, contextTab: action.payload };
+    case 'SET_EDITOR_SELECTION': return { ...state, editorSelection: action.payload };
     case 'ADD_OUTLINE_ITEM': return { ...state, outline: [...state.outline, { id: generateId(), text: action.payload.text, level: action.payload.level, parentId: null, linkedChapterId: null }] };
     case 'DELETE_OUTLINE_ITEM': return { ...state, outline: state.outline.filter(o => o.id !== action.payload) };
     case 'LINK_OUTLINE': return { ...state, outline: state.outline.map(o => o.id === action.payload.outlineId ? { ...o, linkedChapterId: action.payload.chapterId } : o) };
@@ -179,7 +201,7 @@ export function NovelProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(novelReducer, undefined, loadState);
   const saving = useRef(false);
 
-  useEffect(() => { persistState(state); }, [state.volumes, state.outline, state.activeChapterId, state.previewMode]);
+  useEffect(() => { persistState(state); }, [state.volumes, state.outline, state.activeChapterId, state.previewMode, state.workspaceMode, state.contextTab]);
 
   const importMD = useCallback(async (file: File) => {
     try {
@@ -200,7 +222,7 @@ export function NovelProvider({ children }: { children: React.ReactNode }) {
   const exportMD = useCallback(() => {
     const md = exportToMarkdown(state.volumes);
     if (md.trim()) {
-      downloadFile(md, `墨宝_导出_${new Date().toISOString().slice(0, 10)}.md`);
+      downloadFile(md, `${brand.exportPrefix}_${new Date().toISOString().slice(0, 10)}.md`);
       dispatch({ type: 'ADD_TOAST', payload: { message: '导出成功', type: 'success' } });
     } else { dispatch({ type: 'ADD_TOAST', payload: { message: '没有内容可导出', type: 'warn' } }); }
   }, [state.volumes]);
@@ -209,7 +231,7 @@ export function NovelProvider({ children }: { children: React.ReactNode }) {
     if (saving.current) return;
     saving.current = true;
     try {
-      await writeTextFile(rootPath, relativePath, content);
+      await writeTextFile(`${rootPath}/${relativePath}`, content);
     } finally { saving.current = false; }
   }, []);
 

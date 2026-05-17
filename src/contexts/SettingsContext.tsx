@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import { brand } from '../config/brand';
 
 // ---------- 设置项 ----------
 
 export interface AppSettings {
   theme: 'default' | 'dark' | 'eye-care';
+  editorMode: 'markdown' | 'richtext';
   editorFontSize: number;
   editorFontFamily: string;
   editorLineHeight: number;
@@ -12,6 +14,13 @@ export interface AppSettings {
   autoSaveInterval: number;
   showLineNumbers: boolean;
   enableSpellCheck: boolean;
+  cloudSyncEnabled: boolean;
+  aiEnabled: boolean;
+  aiProvider: 'inklery' | 'openai' | 'custom';
+  aiDefaultModel: string;
+  aiUseCurrentChapter: boolean;
+  aiUseWritingContext: boolean;
+  aiSaveHistory: boolean;
   sidebarWidth: number;
   previewVisible: boolean;
   lastSeriesId: string | null;
@@ -20,6 +29,7 @@ export interface AppSettings {
 
 const defaultSettings: AppSettings = {
   theme: 'default',
+  editorMode: 'markdown',
   editorFontSize: 15,
   editorFontFamily: 'var(--font-mono)',
   editorLineHeight: 1.7,
@@ -28,6 +38,13 @@ const defaultSettings: AppSettings = {
   autoSaveInterval: 60,
   showLineNumbers: false,
   enableSpellCheck: false,
+  cloudSyncEnabled: false,
+  aiEnabled: false,
+  aiProvider: 'inklery',
+  aiDefaultModel: '',
+  aiUseCurrentChapter: true,
+  aiUseWritingContext: true,
+  aiSaveHistory: true,
   sidebarWidth: 240,
   previewVisible: true,
   lastSeriesId: null,
@@ -46,9 +63,14 @@ const initialState: SettingsState = {
 
 function loadSettings(): AppSettings {
   try {
-    const stored = localStorage.getItem('mobao_settings_v2');
+    const stored = localStorage.getItem(brand.settingsStorageKey);
     if (stored) {
-      return { ...defaultSettings, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+      return {
+        ...defaultSettings,
+        ...parsed,
+        aiEnabled: false,
+      };
     }
   } catch { /* ignore */ }
   return defaultSettings;
@@ -56,7 +78,7 @@ function loadSettings(): AppSettings {
 
 function saveSettings(settings: AppSettings) {
   try {
-    localStorage.setItem('mobao_settings_v2', JSON.stringify(settings));
+    localStorage.setItem(brand.settingsStorageKey, JSON.stringify(settings));
   } catch { /* ignore */ }
 }
 
